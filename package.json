@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "watch": "tsc -w",
     "clean": "rimraf dist",
+    "prepublish": "tsc",
     "prestart": "npm run clean && npm run build",
     "start": "node dist/index.js"
   },
