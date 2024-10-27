@@ -1,6 +1,8 @@
 # Private keys
 *.pem
 
+.DS_Store
+
 # Logs
 logs
 *.log
