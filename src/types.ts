@@ -9,15 +9,3 @@ export class OrganizationLifecyleEvent {
     this.date = date;
   }
 }
-
-export class Organization {
-  name: string;
-  login: string;
-  createdAt: Date;
-
-  constructor(name: string, login: string, createdAt: Date) {
-    this.name = name;
-    this.login = login;
-    this.createdAt = createdAt;
-  }
-}

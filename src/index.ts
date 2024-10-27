@@ -1,4 +1,4 @@
-import { Organization, OrganizationLifecyleEvent } from './types.js';
+import { OrganizationLifecyleEvent } from './types.js';
 import { OctokitBroker } from './octokitBroker.js';
 
 const broker = new OctokitBroker();
@@ -7,16 +7,17 @@ while(!broker.ready()) {
   await new Promise(r => setTimeout(r, 1000));
 }
 console.log(`broker is ready!`); 
+
 //const repoEvents = await organizationEvents(patOctokit, 'octodemo');
 //console.log(repoEvents);
 
-// const allOrgs = await allInstallableOrganizations(broker);
-// console.log(allOrgs.length);
+//const allOrgs = await allInstallableOrganizations();
+//console.log(allOrgs);
 
-export async function allInstallableOrganizations(): Promise<Organization[]> {
+export async function allInstallableOrganizations(): Promise<string[]> {
   let hasMoreOrgs = true;
   let page = 1;
-  let orgs: Organization[] = []; 
+  let orgs: string[] = []; 
 
   // We should not need to manage the pages but the endpoint doesn't seem to support pagination
   while (hasMoreOrgs) {
@@ -27,7 +28,7 @@ export async function allInstallableOrganizations(): Promise<Organization[]> {
     });
 
     // add all orgs in the page to the orgs list
-    orgs.push(...orgsInPage.map((org: any) => new Organization(org.name, org.login, new Date(org.created_at))));
+    orgs.push(...orgsInPage.map((org: any) => org.login));
 
     if (orgsInPage.length < 100) {
       hasMoreOrgs = false;
