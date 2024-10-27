@@ -1,6 +1,10 @@
 # Private keys
 *.pem
 
+# npm config
+.npmrc
+
+# mac stuff
 .DS_Store
 
 # Logs

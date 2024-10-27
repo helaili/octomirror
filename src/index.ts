@@ -1,37 +1,40 @@
 import { Octokit } from 'octokit';
 import { Organization, OrganizationLifecyleEvent } from './types.js';
+import { OctokitBroker } from './octokitBroker.js';
 
-const pat = process.env.PAT;
-const patOctokit = new Octokit({
-  auth: pat,
-});
-
+const broker = new OctokitBroker();
+while(!broker.ready()) {
+  console.log('waiting for broker to be ready...');
+  await new Promise(r => setTimeout(r, 1000));
+}
+console.log(`broker is ready!`); 
 //const repoEvents = await organizationEvents(patOctokit, 'octodemo');
 //console.log(repoEvents);
 
-const allOrgs = await allOrganizations(patOctokit, 'octodemo');
-console.log(allOrgs);
+// const allOrgs = await allInstallableOrganizations(broker);
+// console.log(allOrgs.length);
 
-export async function allOrganizations(octokit: Octokit, slug: string): Promise<Organization[]> {
-  const {enterprise} = await octokit.graphql.paginate(`query allOrgs ($enterprise:String!, $cursor:String) {
-    enterprise(slug: $enterprise) {
-      organizations(first: 100,after: $cursor) {
-        pageInfo {
-          hasNextPage
-          endCursor
-        }
-        nodes {
-          name
-          login
-          createdAt
-        }
-      }
+export async function allInstallableOrganizations(broker: OctokitBroker): Promise<Organization[]> {
+  let hasMoreOrgs = true;
+  let page = 1;
+  let orgs: Organization[] = []; 
+
+  // We should not need to manage the pages but the endpoint doesn't seem to support pagination
+  while (hasMoreOrgs) {
+    const {data: orgsInPage} = await broker.installationOctokit.request('GET /enterprises/{enterprise}/apps/installable_organizations', {
+      'enterprise': broker.slug,
+      'per_page': 100,
+      'page': page++
+    });
+
+    // add all orgs in the page to the orgs list
+    orgs.push(...orgsInPage.map((org: any) => new Organization(org.name, org.login, new Date(org.created_at))));
+
+    if (orgsInPage.length < 100) {
+      hasMoreOrgs = false;
     }
-  }`, {
-    'enterprise': slug
-  })
-
-  return enterprise.organizations.nodes;
+  }
+  return orgs;
 }
 
 export async function organizationAuditEvents(octokit: Octokit, slug: string): Promise<OrganizationLifecyleEvent[]> {
@@ -58,6 +61,5 @@ export async function organizationAuditEvents(octokit: Octokit, slug: string): P
       orgEvents.push(new OrganizationLifecyleEvent(event.org, action, new Date(event.created_at)));
     }
   }
-
   return orgEvents;
 }
