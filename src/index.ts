@@ -1,4 +1,3 @@
-import { Octokit } from 'octokit';
 import { Organization, OrganizationLifecyleEvent } from './types.js';
 import { OctokitBroker } from './octokitBroker.js';
 
@@ -14,7 +13,7 @@ console.log(`broker is ready!`);
 // const allOrgs = await allInstallableOrganizations(broker);
 // console.log(allOrgs.length);
 
-export async function allInstallableOrganizations(broker: OctokitBroker): Promise<Organization[]> {
+export async function allInstallableOrganizations(): Promise<Organization[]> {
   let hasMoreOrgs = true;
   let page = 1;
   let orgs: Organization[] = []; 
@@ -37,9 +36,9 @@ export async function allInstallableOrganizations(broker: OctokitBroker): Promis
   return orgs;
 }
 
-export async function organizationAuditEvents(octokit: Octokit, slug: string): Promise<OrganizationLifecyleEvent[]> {
-  const iterator = octokit.paginate.iterator('GET /enterprises/{enterprise}/audit-log', {
-    'enterprise': slug,
+export async function organizationAuditEvents(): Promise<OrganizationLifecyleEvent[]> {
+  const iterator = broker.patOctokit().paginate.iterator('GET /enterprises/{enterprise}/audit-log', {
+    'enterprise': broker.slug,
     'phrase': 'action:org.create action:org.delete',
     'order': 'asc',
     'per_page': 100,
