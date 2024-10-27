@@ -16,6 +16,7 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@helaili'
       - run: npm ci
-      - run: npm publish
+      - run: npm publish --tag ${{ github.event.release.tag_name }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
