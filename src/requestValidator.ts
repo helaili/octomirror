@@ -13,7 +13,10 @@ export class RequestValidator {
   }
 
   getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
-    this.client.getSigningKey(header.kid, (err, key) => {
+    let client = jwksClient({
+      jwksUri: `${this.ghesUrl}/_services/token/.well-known/jwks`
+    });
+    client.getSigningKey(header.kid, (err, key) => {
       if (err) {
           callback(err, undefined);
       } else if (!key) {
