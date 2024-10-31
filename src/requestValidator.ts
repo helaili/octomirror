@@ -1,31 +1,36 @@
 import jwt from 'jsonwebtoken';
 import jwksClient from 'jwks-rsa';
 
-export class RequestValidator {
-  ghesUrl: string;
-  client: jwksClient.JwksClient;
+let client: jwksClient.JwksClient;
 
-  constructor(serverUrl: string) {
-    this.ghesUrl = serverUrl;
-    this.client = jwksClient({
-      jwksUri: `${this.ghesUrl}/_services/token/.well-known/jwks`
+function initClient(ghesUrl: string) {
+  if (!client) {
+    client = jwksClient({
+      jwksUri: `${ghesUrl}/_services/token/.well-known/jwks`
     });
   }
+  return client;
+}
 
-  getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
-    let client = jwksClient({
-      jwksUri: `${this.ghesUrl}/_services/token/.well-known/jwks`
-    });
-    client.getSigningKey(header.kid, (err, key) => {
-      if (err) {
-          callback(err, undefined);
-      } else if (!key) {
-          callback(new Error('No key found'), undefined);
-      } else {
-          const signingKey = key.getPublicKey();
-          callback(null, signingKey);
-      }
-    });
+function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
+  client.getSigningKey(header.kid, (err, key) => {
+    if (err) {
+        callback(err, undefined);
+    } else if (!key) {
+        callback(new Error('No key found'), undefined);
+    } else {
+        const signingKey = key.getPublicKey();
+        callback(null, signingKey);
+    }
+  });
+}
+
+export class RequestValidator {
+  ghesUrl: string;
+  
+  constructor(serverUrl: string) {
+    this.ghesUrl = serverUrl;
+    initClient(this.ghesUrl);
   }
 
   /* 
@@ -61,7 +66,7 @@ export class RequestValidator {
   */
   public veryfyToken(token: string): Promise<boolean> {
     return new Promise((resolve, reject) => {
-      jwt.verify(token, this.getKey, { algorithms: ['RS256'] }, (err, decoded) => {
+      jwt.verify(token, getKey, { algorithms: ['RS256'] }, (err, decoded) => {
         if (err) {
           console.log('Token validation error:', err);
           resolve(false);
