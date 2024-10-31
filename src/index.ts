@@ -1,5 +1,6 @@
 import { OrganizationLifecyleEvent } from './types.js';
 import { OctokitBroker } from './octokitBroker.js';
+export { isValidToken } from './authentication.js';
 
 const broker = new OctokitBroker();
 while(!broker.ready()) {
