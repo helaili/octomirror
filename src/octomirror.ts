@@ -7,9 +7,9 @@ export class Octomirror {
   broker: OctokitBroker;
   requestValidator: RequestValidator;
 
-  constructor(ghesUrl: string) {
+  constructor(ghesUrl: string, pat: string, appId: number, privateKey: string) {
     this.ghesUrl = ghesUrl;
-    this.broker = new OctokitBroker();
+    this.broker = new OctokitBroker(pat, appId, privateKey);
     this.requestValidator = new RequestValidator(this.ghesUrl);  
   }
 

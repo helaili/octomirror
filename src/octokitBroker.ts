@@ -1,18 +1,17 @@
 import { App, Octokit } from 'octokit';
-import * as fs from 'fs';
 
 export class OctokitBroker {
-  private privateKey: string;
-  private patOctokit!: Octokit;
-  appId: number;
   app: App;
   slug!: string;
+  patOctokit: Octokit;
   installationOctokit!: Octokit;
   
-  constructor() {
-    this.appId = this.getAppId();
-    this.privateKey = this.getPrivateKey();
-    this.app = new App({ appId: this.appId, privateKey: this.getPrivateKey() });
+  constructor(pat: string, appId: number, privateKey: string) {
+    this.app = new App({ appId, privateKey });
+    // We should be able to get rid of this as soon as Enteprise GitHub Apps can acces more endpoints
+    this.patOctokit = new Octokit({
+      auth: pat,
+    });
     this.initialize();
   }
 
@@ -33,41 +32,5 @@ export class OctokitBroker {
         }
       }
     }
-  }
-
-  public getPatOctokit() : Octokit {
-    if (!this.patOctokit) {
-      const pat = process.env.PAT;
-      if (!pat) {
-        throw new Error('PAT environment variable is required');
-      } 
-      
-      this.patOctokit = new Octokit({
-        auth: pat,
-      });
-    }
-    return this.patOctokit;
-  }
-
-  private getAppId() : number {
-    if (!process.env.APP_ID) {
-      throw new Error('APP_ID environment variable is required');
-    } 
-    return parseInt(process.env.APP_ID);
-  }
-
-  // Load the private key from the file system in development mode, or from an environment variable in production mode
-  private getPrivateKey() : string {
-    if (process.env.AZURE_FUNCTIONS_ENVIRONMENT && process.env.AZURE_FUNCTIONS_ENVIRONMENT === 'Development') {
-      if (!process.env.PRIVATE_KEY_FILE) {
-        throw new Error('PRIVATE_KEY_FILE environment variable is required');
-      }  
-      return fs.readFileSync(process.env.PRIVATE_KEY_FILE, 'utf8');
-    } else {
-      if (!process.env.PRIVATE_KEY) {
-        throw new Error('PRIVATE_KEY environment variable is required');
-      }  
-      return Buffer.from(process.env.PRIVATE_KEY, 'base64').toString('utf8');
-    }
-  }
+  } 
 }

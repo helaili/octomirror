@@ -25,7 +25,8 @@ export async function allInstallableOrganizations(broker: OctokitBroker): Promis
 }
 
 export async function organizationAuditEvents(broker: OctokitBroker): Promise<OrganizationLifecyleEvent[]> {
-  const iterator = broker.getPatOctokit().paginate.iterator('GET /enterprises/{enterprise}/audit-log', {
+  // Using the PAT Otokit to get the audit log as the installation token doesn't have access to it
+  const iterator = broker.patOctokit.paginate.iterator('GET /enterprises/{enterprise}/audit-log', {
     'enterprise': broker.slug,
     'phrase': 'action:org.create action:org.delete',
     'order': 'asc',
