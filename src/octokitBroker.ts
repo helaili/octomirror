@@ -3,7 +3,7 @@ import * as fs from 'fs';
 
 export class OctokitBroker {
   private privateKey: string;
-  private _patOctokit!: Octokit;
+  private patOctokit!: Octokit;
   appId: number;
   app: App;
   slug!: string;
@@ -16,18 +16,37 @@ export class OctokitBroker {
     this.initialize();
   }
 
-  public patOctokit() : Octokit {
-    if (!this._patOctokit) {
+  public ready(): boolean {
+    return this.installationOctokit !== undefined && this.slug !== undefined;
+  }
+
+  private async initialize() {
+    const { data: appMeta } = await this.app.octokit.rest.apps.getAuthenticated();
+    if(appMeta) {
+      console.log(`App authenticated as ${appMeta.name} owned by ${appMeta.owner?.login}`)
+
+      for await (const { octokit, installation } of this.app.eachInstallation.iterator()) {
+        if (installation.target_type === 'Enterprise') {
+          this.slug = installation.account?.slug || 'undefined';
+          this.installationOctokit = octokit;
+          console.log(`OctokitBroker is ready for ${this.slug}`); 
+        }
+      }
+    }
+  }
+
+  public getPatOctokit() : Octokit {
+    if (!this.patOctokit) {
       const pat = process.env.PAT;
       if (!pat) {
         throw new Error('PAT environment variable is required');
       } 
       
-      this._patOctokit = new Octokit({
+      this.patOctokit = new Octokit({
         auth: pat,
       });
     }
-    return this._patOctokit;
+    return this.patOctokit;
   }
 
   private getAppId() : number {
@@ -50,24 +69,5 @@ export class OctokitBroker {
       }  
       return Buffer.from(process.env.PRIVATE_KEY, 'base64').toString('utf8');
     }
-  }
-
-  private async initialize() {
-    const { data: appMeta } = await this.app.octokit.rest.apps.getAuthenticated();
-    if(appMeta) {
-      console.log(`App authenticated as ${appMeta.name} owned by ${appMeta.owner?.login}`)
-
-      const installations = await this.app.eachInstallation.iterator();
-      for await (const { octokit, installation } of installations) {
-        if (installation.target_type === 'Enterprise') {
-          this.slug = installation.account?.slug || 'undefined';
-          this.installationOctokit = octokit;
-        }
-      }
-    }
-  }
-
-  public ready(): boolean {
-    return this.installationOctokit !== undefined && this.slug !== undefined;
   }
 }
