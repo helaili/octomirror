@@ -1,5 +1,6 @@
 import { OctokitBroker } from "./octokitBroker.js";
 import { allInstallableOrganizations } from "./organizations.js";
+import { installApp } from "./installation.js";
 import { RequestValidator } from "./requestValidator.js";
 
 export class Octomirror {
@@ -16,6 +17,14 @@ export class Octomirror {
   public async allInstallableOrganizations(authHeader: string): Promise<string[]> {
     if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
       return allInstallableOrganizations(this.broker);
+    } else {
+      throw new Error('Invalid token');
+    }
+  }
+
+  public async installApp(authHeader: string, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string) {
+    if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
+      return installApp(this.broker.installationOctokit, enterpriseSlug, orgLogin, appSlug, appClientId);
     } else {
       throw new Error('Invalid token');
     }

@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 
-async function installApp(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string) {
+export async function installApp(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string) {
   const result = await octokit.request( "POST /enterprises/{enterprise}/apps/organizations/{org}/installations " , { 
     enterprise: enterpriseSlug, 
     org: orgLogin, 
