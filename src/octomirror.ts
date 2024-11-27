@@ -8,9 +8,16 @@ export class Octomirror {
   ghesUrl: string;
   broker: OctokitBroker;
   requestValidator: RequestValidator;
+  enterpriseSlug: string;
+  appSlug: string;
+  appClientId: string;
 
-  constructor(ghesUrl: string, pat: string, appId: number, privateKey: string) {
+  constructor(ghesUrl: string, pat: string, enterpriseSlug: string, appSlug: string, 
+    appId: number, appClientId: string, privateKey: string) {
     this.ghesUrl = ghesUrl;
+    this.appClientId = appClientId;
+    this.enterpriseSlug = enterpriseSlug;
+    this.appSlug = appSlug;
     this.broker = new OctokitBroker(pat, appId, privateKey);
     this.requestValidator = new RequestValidator(this.ghesUrl);  
   }
@@ -23,33 +30,33 @@ export class Octomirror {
     }
   }
 
-  public async installApps(authHeader: string, enterpriseSlug: string, appSlug: string, appClientId: string) {
+  public async installApps(authHeader: string) {
     if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return installApps(this.broker, enterpriseSlug, appSlug, appClientId);
+      return installApps(this.broker, this.enterpriseSlug, this.appSlug, this.appClientId);
     } else {
       throw new Error('Invalid token');
     }
   }
 
-  public async installApp(authHeader: string, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string) {
+  public async installApp(authHeader: string, orgLogin: string) {
     if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return installApp(this.broker, enterpriseSlug, orgLogin, appSlug, appClientId);
+      return installApp(this.broker, this.enterpriseSlug, orgLogin, this.appSlug, this.appClientId);
     } else {
       throw new Error('Invalid token');
     }
   }
 
-  public async getInstallation(authHeader: string, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<Installation | undefined>{
+  public async getInstallation(authHeader: string, orgLogin: string) : Promise<Installation | undefined>{
     if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return await getInstallation(this.broker, enterpriseSlug, orgLogin, appSlug);
+      return await getInstallation(this.broker, this.enterpriseSlug, orgLogin, this.appSlug);
     } else {
       throw new Error('Invalid token');
     }
   }
 
-  public async getInstallationToken(authHeader: string, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<GetInstallationTokenResponse['data'] | undefined> {
+  public async getInstallationToken(authHeader: string, orgLogin: string) : Promise<GetInstallationTokenResponse['data'] | undefined> {
     if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return await getInstallationToken(this.broker, enterpriseSlug, orgLogin, appSlug);
+      return await getInstallationToken(this.broker, this.enterpriseSlug, orgLogin, this.appSlug);
     } else {
       throw new Error('Invalid token');
     }
