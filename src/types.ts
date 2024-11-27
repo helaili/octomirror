@@ -1,3 +1,5 @@
+import { Endpoints } from '@octokit/types';
+
 export class OrganizationLifecyleEvent {
   name: string;
   event: 'created' | 'deleted';
@@ -9,3 +11,13 @@ export class OrganizationLifecyleEvent {
     this.date = date;
   }
 }
+
+// TODO: this should be replaced by an Octokit type 
+// once GET /enterprises/{enterprise}/apps/organizations/{org}/installations is supported  
+export interface Installation {
+  id: Number;
+  app_slug: string; 
+  client_id: string;
+}
+
+export type GetInstallationTokenResponse = Endpoints['POST /app/installations/{installation_id}/access_tokens']["response"];
