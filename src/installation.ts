@@ -3,6 +3,13 @@ import { OctokitBroker } from "./octokitBroker.js";
 import { Installation, GetInstallationTokenResponse } from "./types.js";
 
 
+export async function installApps(broker: OctokitBroker, enterpriseSlug: string, appSlug: string, appClientId: string) {
+  const orgs = await allInstallableOrganizations(broker);
+  for(const org of orgs) {
+    installApp(broker, enterpriseSlug, org, appSlug, appClientId);    
+  }
+}
+
 export async function installApp(broker: OctokitBroker, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string) {
   const result = await broker.installationOctokit.request('POST /enterprises/{enterprise}/apps/organizations/{org}/installations', { 
     enterprise: enterpriseSlug, 

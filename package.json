@@ -1,6 +1,6 @@
 {
   "name": "@helaili/octomirror",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -12,7 +12,8 @@
     "clean": "rimraf dist",
     "prepublish": "tsc",
     "prestart": "npm run clean && npm run build",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "release": "gh release create v$(jq -r '.version' package.json) --generate-notes"
   },
   "keywords": [],
   "author": "Alain Hélaïli",
