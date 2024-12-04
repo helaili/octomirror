@@ -34,8 +34,10 @@
     "vitest": "^2.1.6"
   },
   "dependencies": {
+    "@octokit/plugin-enterprise-cloud": "^13.0.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.1.0",
-    "octokit": "^4.0.2"
+    "octokit": "^4.0.2",
+    "simple-git": "^3.27.0"
   }
 }

@@ -1,64 +1,52 @@
 import { OctokitBroker } from "./octokitBroker.js";
-import { allInstallableOrganizations } from "./organizations.js";
-import { installApps, installApp, getInstallation, getInstallationToken } from "./installation.js";
-import { RequestValidator } from "./requestValidator.js";
-import { GetInstallationTokenResponse, Installation } from "./types.js";
+import { allInstallableOrganizations, createOrg } from "./organizations.js";
+import { installApp, getInstallationToken } from "./installation.js";
+import { createRepo, getRepos, mirrorRepo } from "./repository.js";
 
 export class Octomirror {
-  ghesUrl: string;
   broker: OctokitBroker;
-  requestValidator: RequestValidator;
   enterpriseSlug: string;
   appSlug: string;
   appClientId: string;
+  ghesOwnerUser: string
 
-  constructor(ghesUrl: string, pat: string, enterpriseSlug: string, appSlug: string, 
+  constructor(ghesPat: string, ghesUrl: string, ghesOwnerUser: string, dotcomPat: string, enterpriseSlug: string, appSlug: string, 
     appId: number, appClientId: string, privateKey: string) {
-    this.ghesUrl = ghesUrl;
     this.appClientId = appClientId;
     this.enterpriseSlug = enterpriseSlug;
     this.appSlug = appSlug;
-    this.broker = new OctokitBroker(pat, appId, privateKey);
-    this.requestValidator = new RequestValidator(this.ghesUrl);  
+    this.broker = new OctokitBroker(ghesPat, ghesUrl, dotcomPat, appSlug, appId, privateKey);
+    this.ghesOwnerUser = ghesOwnerUser;
   }
 
-  public async allInstallableOrganizations(authHeader: string): Promise<string[]> {
-    if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return allInstallableOrganizations(this.broker);
-    } else {
-      throw new Error('Invalid token');
+  public async initMirror() {
+    let newOrgs: string[]
+    const updatedRepos= new Map<string, string[]>()
+
+    const allOrgs = await allInstallableOrganizations(this.broker.installationOctokit, this.enterpriseSlug);
+    if (allOrgs) {
+      for(const org of allOrgs) {
+        this.processNewOrg(org)
+      }
     }
   }
 
-  public async installApps(authHeader: string) {
-    if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return installApps(this.broker, this.enterpriseSlug, this.appSlug, this.appClientId);
-    } else {
-      throw new Error('Invalid token');
-    }
-  }
-
-  public async installApp(authHeader: string, orgLogin: string) {
-    if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return installApp(this.broker, this.enterpriseSlug, orgLogin, this.appSlug, this.appClientId);
-    } else {
-      throw new Error('Invalid token');
-    }
-  }
-
-  public async getInstallation(authHeader: string, orgLogin: string) : Promise<Installation | undefined>{
-    if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return await getInstallation(this.broker, this.enterpriseSlug, orgLogin, this.appSlug);
-    } else {
-      throw new Error('Invalid token');
-    }
-  }
-
-  public async getInstallationToken(authHeader: string, orgLogin: string) : Promise<GetInstallationTokenResponse['data'] | undefined> {
-    if(await this.requestValidator.veryfyAuthHeader(authHeader)) {
-      return await getInstallationToken(this.broker, this.enterpriseSlug, orgLogin, this.appSlug);
-    } else {
-      throw new Error('Invalid token');
+  async processNewOrg(org: string) {
+    // Intall the app on the dotcom org so that we can access its repositories
+    const installationId = await installApp(this.broker.installationOctokit, this.enterpriseSlug, org, this.appSlug, this.appClientId);
+    // Get the ocktokit for this app.
+    const orgOctokit = await this.broker.getAppInstallationOctokit(org, installationId)
+    //Get all repos from the doctcom org
+    const repos = await getRepos(orgOctokit, org);
+    console.log(repos);
+    // Create the org on GHES
+    await createOrg(this.broker.ghesOctokit, org, this.ghesOwnerUser)
+    //Create all repos on the ghes org
+    for(const repo of repos) {
+      await createRepo(this.broker.ghesOctokit, org, repo)
+      const dotcomRepoUrl = await this.broker.getDotcomRepoUrl(org, repo.name);
+      const ghesRepoUrl = await this.broker.getGhesRepoUrl(org, repo.name);
+      mirrorRepo(dotcomRepoUrl, ghesRepoUrl);
     }
   }
 }

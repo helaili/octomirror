@@ -1,17 +1,9 @@
-import { allInstallableOrganizations } from "./organizations.js";
-import { OctokitBroker } from "./octokitBroker.js";
 import { Installation, GetInstallationTokenResponse } from "./types.js";
+import { Octokit } from "octokit";
 
 
-export async function installApps(broker: OctokitBroker, enterpriseSlug: string, appSlug: string, appClientId: string) {
-  const orgs = await allInstallableOrganizations(broker);
-  for(const org of orgs) {
-    installApp(broker, enterpriseSlug, org, appSlug, appClientId);    
-  }
-}
-
-export async function installApp(broker: OctokitBroker, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string) {
-  const result = await broker.installationOctokit.request('POST /enterprises/{enterprise}/apps/organizations/{org}/installations', { 
+export async function installApp(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string): Promise<number | undefined> {
+  const result = await octokit.request('POST /enterprises/{enterprise}/apps/organizations/{org}/installations', { 
     enterprise: enterpriseSlug, 
     org: orgLogin, 
     client_id: appClientId, 
@@ -21,18 +13,21 @@ export async function installApp(broker: OctokitBroker, enterpriseSlug: string, 
   switch (result.status) { 
     case 201 : 
       console.log(`The app ${appSlug} was installed in ${orgLogin}`); 
+      return result.data.id;
       break; 
     case 200 : 
       console.log(`The app ${appSlug} was already installed in ${orgLogin}`); 
+      return result.data.id;
       break ; 
     default : 
       console.log(`An error occurred while installing the app ${appSlug} in ${orgLogin} with status code ${result.status}`); 
+      return undefined;
       break ; 
   }
 }
 
-export async function getInstallation(broker: OctokitBroker, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<Installation | undefined> {
-  const installations: Installation[] = await broker.installationOctokit.paginate('GET /enterprises/{enterprise}/apps/organizations/{org}/installations', {
+export async function getInstallation(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<Installation | undefined> {
+  const installations: Installation[] = await octokit.paginate('GET /enterprises/{enterprise}/apps/organizations/{org}/installations', {
     enterprise: enterpriseSlug, 
     org: orgLogin
   });
@@ -50,19 +45,23 @@ export async function getInstallation(broker: OctokitBroker, enterpriseSlug: str
   }
 }
 
-export async function getInstallationToken(broker: OctokitBroker, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<GetInstallationTokenResponse['data'] | undefined> {
-  const installation = await getInstallation(broker, enterpriseSlug, orgLogin, appSlug);
-  if (installation) {
-    const result: GetInstallationTokenResponse = await broker.installationOctokit.request('POST /app/installations/{installation_id}/access_tokens' , { 
-      installation_id: Number(installation.id)
-    });
-    if(result.status === 201) { 
-      return result.data;
+export async function getInstallationToken(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, installationId?: number) : Promise<GetInstallationTokenResponse['data'] | undefined> {
+  if(!installationId) {
+    const installation = await getInstallation(octokit, enterpriseSlug, orgLogin, appSlug);
+    if (installation) {
+      installationId = Number(installation.id);  
     } else {
-      console.log(`Failed to get installation token for ${appSlug} in ${orgLogin}`, result.data);
-      return undefined
+      return undefined;
     }
+  }
+  
+  const result: GetInstallationTokenResponse = await octokit.request('POST /app/installations/{installation_id}/access_tokens' , { 
+    installation_id: installationId
+  });
+  if(result.status === 201) { 
+    return result.data;
   } else {
-    return undefined;
+    console.log(`Failed to get installation token for ${appSlug} in ${orgLogin}`, result.data);
+    return undefined
   }
 }

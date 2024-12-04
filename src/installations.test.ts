@@ -38,7 +38,7 @@ describe('getInstallationToken', () => {
     (broker.installationOctokit.paginate as unknown as Mock).mockResolvedValue([installation]);
     (broker.installationOctokit.request as unknown as Mock).mockResolvedValue(tokenResponse);
 
-    const result = await getInstallationToken(broker, enterpriseSlug, orgLogin, appSlug);
+    const result = await getInstallationToken(broker.installationOctokit, enterpriseSlug, orgLogin, appSlug);
 
     expect(result).toEqual(tokenResponse.data);
     expect(broker.installationOctokit.request).toHaveBeenCalledWith('POST /app/installations/{installation_id}/access_tokens', { installation_id: 123 });
@@ -47,7 +47,7 @@ describe('getInstallationToken', () => {
   it('should return undefined when installation does not exist', async () => {
     (broker.installationOctokit.paginate as unknown as Mock).mockResolvedValue([]);
 
-    const result = await getInstallationToken(broker, enterpriseSlug, orgLogin, appSlug);
+    const result = await getInstallationToken(broker.installationOctokit, enterpriseSlug, orgLogin, appSlug);
 
     expect(result).toBeUndefined();
   });
