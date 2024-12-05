@@ -70,9 +70,14 @@ export async function mirrorRepo(dotcomRepoUrl: string, ghesRepoUrl: string) {
     await git.raw(['config', '--local', 'remote.origin.push', '+refs/heads/*:refs/heads/*', '--replace-all']);
     await git.raw(['config', '--local', 'remote.origin.push', '+refs/tags/*:refs/tags/*', '--add']);
 
+    // Bump the http post buffer to 150MB to avoid error:
+    // RPC failed; HTTP 400 curl 22 The requested URL returned error: 400
+    // send-pack: unexpected disconnect while reading sideband packet
+    await git.raw(['config', '--local', 'http.postBuffer', '157286400']);
+
     // Fetch all branches
     await git.fetch(['--prune', 'origin']);
-    
+
     // Push to GHES
     await git.push(['--mirror']);
   } catch (error) {

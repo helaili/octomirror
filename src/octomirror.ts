@@ -31,21 +31,20 @@ export class Octomirror {
     }
   }
 
-  async processNewOrg(org: string) {
+  async processNewOrg(orgLogin: string) {
     // Intall the app on the dotcom org so that we can access its repositories
-    const installationId = await installApp(this.broker.installationOctokit, this.enterpriseSlug, org, this.appSlug, this.appClientId);
+    const installationId = await installApp(this.broker.installationOctokit, this.enterpriseSlug, orgLogin, this.appSlug, this.appClientId);
     // Get the ocktokit for this app.
-    const orgOctokit = await this.broker.getAppInstallationOctokit(org, installationId)
+    const orgOctokit = await this.broker.getAppInstallationOctokit(orgLogin, installationId)
     //Get all repos from the doctcom org
-    const repos = await getRepos(orgOctokit, org);
-    console.log(repos);
+    const repos = await getRepos(orgOctokit, orgLogin);
     // Create the org on GHES
-    await createOrg(this.broker.ghesOctokit, org, this.ghesOwnerUser)
+    await createOrg(this.broker.ghesOctokit, orgLogin, this.ghesOwnerUser)
     //Create all repos on the ghes org
     for(const repo of repos) {
-      await createRepo(this.broker.ghesOctokit, org, repo)
-      const dotcomRepoUrl = await this.broker.getDotcomRepoUrl(org, repo.name);
-      const ghesRepoUrl = await this.broker.getGhesRepoUrl(org, repo.name);
+      await createRepo(this.broker.ghesOctokit, orgLogin, repo)
+      const dotcomRepoUrl = await this.broker.getDotcomRepoUrl(orgLogin, repo.name);
+      const ghesRepoUrl = await this.broker.getGhesRepoUrl(orgLogin, repo.name);
       mirrorRepo(dotcomRepoUrl, ghesRepoUrl);
     }
   }
