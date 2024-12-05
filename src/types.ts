@@ -31,6 +31,3 @@ export interface Repository {
 
 export const EnterpriseOctokitBuilder = Octokit.plugin(enterpriseCloud);
 export type EnterpriseOctokit = InstanceType<typeof EnterpriseOctokitBuilder>;
-
-const MyOctokit = Octokit.plugin(enterpriseCloud);
-const entoctokit = new MyOctokit({ auth: "secret123" });
