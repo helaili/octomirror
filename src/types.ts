@@ -2,16 +2,20 @@ import { Endpoints } from '@octokit/types';
 import { enterpriseCloud } from "@octokit/plugin-enterprise-cloud";
 import { Octokit } from 'octokit';
 
-export class OrganizationLifecyleEvent {
-  name: string;
-  event: 'created' | 'deleted';
-  date: Date;
+export interface AuditLogEvent {
+  action: string;
+  operation_type: string;
+  created_at: number;
+  business: string;
+  org: string;
+}
 
-  constructor(name: string, event: 'created' | 'deleted', date: Date) {
-    this.name = name;
-    this.event = event;
-    this.date = date;
-  }
+export interface OrganizationAuditLogEvent extends AuditLogEvent {
+  org: string
+}
+
+export interface OrganizationRenameAuditLogEvent extends OrganizationAuditLogEvent {
+  old_login: string
 }
 
 // TODO: this should be replaced by an Octokit type 

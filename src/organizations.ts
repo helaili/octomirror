@@ -1,5 +1,5 @@
-import { EnterpriseOctokit, OrganizationLifecyleEvent } from './types.js';
-import { Octokit, RequestError } from 'octokit';
+import { EnterpriseOctokit } from './types.js';
+import { Octokit } from 'octokit';
 
 export async function allInstallableOrganizations(octokit: Octokit, enterpriseSlug: string): Promise<string[]> {
   let hasMoreOrgs = true;
@@ -9,7 +9,7 @@ export async function allInstallableOrganizations(octokit: Octokit, enterpriseSl
   console.log(`env is ${process.env.ENVIRONMENT} and test org is ${process.env.TEST_ORG}`);
 
   if (process.env.ENVIRONMENT === 'Development' && process.env.TEST_ORG) {
-    return [process.env.TEST_ORG];
+    return process.env.TEST_ORG.split(',');
   } 
 
   // We should not need to manage the pages but the endpoint doesn't seem to support pagination
@@ -30,36 +30,7 @@ export async function allInstallableOrganizations(octokit: Octokit, enterpriseSl
   return orgs;
 }
 
-export async function organizationAuditEvents(octokit: Octokit, enterpriseSlug: string): Promise<OrganizationLifecyleEvent[]> {
-  // Using the PAT Otokit to get the audit log as the installation token doesn't have access to it
-  const iterator = octokit.paginate.iterator('GET /enterprises/{enterprise}/audit-log', {
-    'enterprise': enterpriseSlug,
-    'phrase': 'action:org.create action:org.delete',
-    'order': 'asc',
-    'per_page': 100,
-  });
-
-  let orgEvents: OrganizationLifecyleEvent[] = [];
-
-  for await (const {data: events} of iterator) {
-    for (const event of events as any[]) {
-      let action: 'created' | 'deleted';
-      if (event.action === 'org.create') {
-        action = 'created';
-      } else if (event.action === 'org.delete') {
-        action = 'deleted';
-      } else {
-        throw new Error(`Unexpected event type: ${event.action}`);
-      }
-
-      orgEvents.push(new OrganizationLifecyleEvent(event.org, action, new Date(event.created_at)));
-    }
-  }
-  return orgEvents;
-}
-
 export async function createOrg(octokit: EnterpriseOctokit, org: string, adminUser: string): Promise<void> {
-  // Use octokit to create the orgs
   try {
     console.log(`Creating org ${org} with owner ${adminUser}...`)
     const response = await octokit.request('POST /admin/organizations', {
@@ -76,4 +47,38 @@ export async function createOrg(octokit: EnterpriseOctokit, org: string, adminUs
     }
   }
 }
+
+export async function deleteOrg(octokit: EnterpriseOctokit, org: string): Promise<void> {
+  try {
+    console.log(`Deleting org ${org}...`)
+    await octokit.request(`DELETE /orgs/${org}`)
+  } catch (error: any) {
+    if (error.status === 404) {
+      console.log(`Organization ${org} does not exist, skipping deletion`)
+      return
+    } else {
+      console.error(`Failed to delete org ${org}`)
+      throw error
+    }
+  }
+}
+
+export async function renameOrg(octokit: EnterpriseOctokit, oldOrg: string, newOrg: string): Promise<number> {
+  try {
+    console.log(`Renaming org ${oldOrg} to ${newOrg}...`)
+    const response = await octokit.request(`PATCH /admin/organizations/{oldOrg}`, {
+      'login': newOrg
+    })
+    return response.status
+  } catch (error: any) {
+    if (error.status === 404) {
+      console.log(`Organization ${oldOrg} does not exist, skipping renaming`)
+      return error.status
+    } else {
+      console.error(`Failed to rename org ${oldOrg}`)
+      throw error
+    }
+  }
+}
+
 

@@ -2,27 +2,33 @@ import { Installation, GetInstallationTokenResponse } from "./types.js";
 import { Octokit } from "octokit";
 
 
-export async function installApp(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string): Promise<number | undefined> {
-  const result = await octokit.request('POST /enterprises/{enterprise}/apps/organizations/{org}/installations', { 
-    enterprise: enterpriseSlug, 
-    org: orgLogin, 
-    client_id: appClientId, 
-    repository_selection: "all" 
-  });
+export async function installApp(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string): Promise<number | undefined> {
+  try {
+    const result = await octokit.request('POST /enterprises/{enterprise}/apps/organizations/{org}/installations', { 
+      enterprise: enterpriseSlug, 
+      org: orgLogin, 
+      client_id: appClientId, 
+      repository_selection: "all" 
+    });
 
-  switch (result.status) { 
-    case 201 : 
-      console.log(`The app ${appSlug} was installed in ${orgLogin}`); 
-      return result.data.id;
-      break; 
-    case 200 : 
-      console.log(`The app ${appSlug} was already installed in ${orgLogin}`); 
-      return result.data.id;
-      break ; 
-    default : 
-      console.log(`An error occurred while installing the app ${appSlug} in ${orgLogin} with status code ${result.status}`); 
-      return undefined;
-      break ; 
+    switch (result.status) { 
+      case 201 : 
+        console.log(`The app ${appSlug} was installed in ${orgLogin}`); 
+        return result.data.id;
+        break; 
+      case 200 : 
+        console.log(`The app ${appSlug} was already installed in ${orgLogin}`); 
+        return result.data.id;
+        break ; 
+    }
+  } catch (error: any) {
+    if (error.status === 404 && error.response?.data.message === 'Not Found') {
+      console.log(`The app ${appSlug} could not be installed on ${orgLogin}, the organization does not exist`); 
+      return;
+    } else {
+      console.error(`Failed to create org ${orgLogin}`)
+      throw error
+    }
   }
 }
 

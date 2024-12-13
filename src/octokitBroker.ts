@@ -22,9 +22,14 @@ export class OctokitBroker {
     this.dotcomUrl = dotcomUrl;
 
     // We should be able to get rid of this as soon as Enteprise GitHub Apps can acces more endpoints
+    let apiUrl = `${this.dotcomUrl}/api/v3`;
+    if(this.dotcomUrl === "https://github.com") {
+      apiUrl = 'https://api.github.com';
+    }
+        
     this.dotcomOctokit = new EnterpriseOctokitBuilder({
       auth: dotcompat,
-      baseUrl: `${dotcomUrl}/api/v3`
+      baseUrl: apiUrl
     });
     this.ghesOctokit = new EnterpriseOctokitBuilder({
       auth: ghespat,
