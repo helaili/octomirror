@@ -35,7 +35,7 @@ setTimeout(() => {
       exit(1);
     }
     // convert the sync from to a date
-    const syncFrom = new Date(process.argv[3]);
+    const syncFrom = new Date(process.argv[3] + ' UTC');
     console.log(`Starting Octomirror with sync mode from ${syncFrom}`);
     octomirror.syncMirror(syncFrom);
   } else {

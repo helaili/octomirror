@@ -28,3 +28,16 @@ Mirror an Enterprise on GitHub Enterprise Cloud with a GHES instance.
 ### Enterprise permissions
 - Enterprise organization installation repositories: Read & write
 -Enterprise organization installations: Read & write
+
+## Usage
+
+```bash
+npm start init
+```
+
+or 
+
+```bash
+npm start sync 2024-10-01
+```
+

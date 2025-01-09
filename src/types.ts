@@ -14,6 +14,17 @@ export interface OrganizationAuditLogEvent extends AuditLogEvent {
   org: string
 }
 
+export interface RepositoryAuditLogEvent extends AuditLogEvent {
+  org: string;
+  repo: string;
+  visibility: 'public' | 'private' | 'internal';
+}
+
+export interface RepositoryRenameAuditLogEvent extends RepositoryAuditLogEvent {
+  old_name: string;
+}
+
+
 export interface OrganizationRenameAuditLogEvent extends OrganizationAuditLogEvent {
   old_login: string
 }
@@ -30,6 +41,7 @@ export type GetInstallationTokenResponse = Endpoints['POST /app/installations/{i
 
 export interface Repository {
   name: string;
+  org: string;
   visibility:  'public' | 'private' | 'internal';
 }
 
