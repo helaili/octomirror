@@ -10,7 +10,7 @@ Mirror an Enterprise on GitHub Enterprise Cloud with a GHES instance.
 - `CLIENT_ID`: the client id of the octomirror app on the Cloud instance's Enterprise
 - `PRIVATE_KEY_FILE`: the path to file containing the private key of the octomirror app on the Cloud instance's Enterprise
 - `DOTCOM_PAT`: a classic PAT on the Cloud instance with scopes `admin:org`, `audit_log`, `repo`. This will be removed once enterprise apps can access the audit log.
-- `GHES_PAT`: the classic PAT that is used to create everything on the GHES instance. This should have `admin:enterprise`, `admin:org`, `repo`, `site_admin` and `workflow` scopes.
+- `GHES_PAT`: the classic PAT that is used to create everything on the GHES instance. This should have `admin:enterprise`, `admin:org`, `repo`, `delete_repo`, `site_admin` and `workflow` scopes.
 - `GHES_URL`: the URL of the GHES instance
 - `GHES_OWNER`: the name of the owner of the repos created on the GHES instance
 - `ENVIRONMENT`: Optional - set to `Development` to restrict the mirorring to the `TEST_ORG` organization
