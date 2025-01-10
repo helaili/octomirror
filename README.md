@@ -24,6 +24,7 @@ Mirror an Enterprise on GitHub Enterprise Cloud with a GHES instance.
 
 ### Organization permissions
 - Administration: Read only
+- Members: Read only
 
 ### Enterprise permissions
 - Enterprise organization installation repositories: Read & write

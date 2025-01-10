@@ -38,6 +38,9 @@ setTimeout(() => {
     const syncFrom = new Date(process.argv[3] + ' UTC');
     console.log(`Starting Octomirror with sync mode from ${syncFrom}`);
     octomirror.syncMirror(syncFrom);
+  } else if (mode === 'reset') {
+    console.log('Starting Octomirror with reset mode');
+    octomirror.resetMirror()
   } else {
     console.error('Invalid mode. Use "init" to seed the mirror or "sync" to update it');
     exit(1);

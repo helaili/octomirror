@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@octokit/plugin-enterprise-cloud": "^13.0.0",
+    "@octokit/rest": "^21.1.0",
     "fs-extra": "^11.2.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.1.0",

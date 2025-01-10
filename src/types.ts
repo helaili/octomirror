@@ -1,6 +1,13 @@
 import { Endpoints } from '@octokit/types';
 import { enterpriseCloud } from "@octokit/plugin-enterprise-cloud";
 import { Octokit } from 'octokit';
+import {
+  GetResponseTypeFromEndpointMethod,
+  GetResponseDataTypeFromEndpointMethod,
+} from "@octokit/types";
+import { Octokit as RESTOctokit } from "@octokit/rest";
+
+const octokit: RESTOctokit = new RESTOctokit();
 
 export interface AuditLogEvent {
   action: string;
@@ -47,3 +54,18 @@ export interface Repository {
 
 export const EnterpriseOctokitBuilder = Octokit.plugin(enterpriseCloud);
 export type EnterpriseOctokit = InstanceType<typeof EnterpriseOctokitBuilder>;
+
+export type ListTeamResponse = Endpoints['GET /orgs/{org}/teams']["response"]["data"];
+
+export type Team = GetResponseDataTypeFromEndpointMethod<
+  typeof octokit.teams.list
+>[number];
+
+export interface TeamToCreate {
+  org: string; 
+  name: string; 
+  description: string; 
+  privacy: 'closed' | 'secret' | undefined; 
+  parent_team_id?: number 
+};
+
