@@ -1,9 +1,10 @@
 import { OctokitBroker } from "./octokitBroker.js";
 import { allInstallableOrganizations, createOrg, deleteOrg, renameOrg } from "./organizations.js";
 import { installApp } from "./installation.js";
-import { createRepo, deleteMirror, deleteRepo, getRepos, mirrorRepo, renameMirror, renameRepo } from "./repository.js";
+import { createOrgRepos, createRepo, deleteMirror, deleteRepo, mirrorRepo, renameMirror, renameRepo } from "./repository.js";
 import { auditEvents } from "./enterprise.js";
 import { OrganizationRenameAuditLogEvent, Repository, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent } from "./types.js";
+import { createOrgTeams, deleteOrgTeams } from "./teams.js";
 
 export class Octomirror {
   broker: OctokitBroker;
@@ -33,6 +34,18 @@ export class Octomirror {
     }
   }
 
+  public async resetMirror() {
+    let newOrgs: string[]
+    const updatedRepos= new Map<string, string[]>()
+
+    const allOrgs = await allInstallableOrganizations(this.broker.installationOctokit, this.enterpriseSlug);
+    if (allOrgs) {
+      for(const org of allOrgs) {
+        this.processOrgReset(org)
+      }
+    }
+  }
+
   public async syncMirror(syncFrom: Date) {
     // Using the PAT Octokit to get the audit log as the installation token doesn't have access to it
     const events = await auditEvents(this.broker.dotcomOctokit, this.enterpriseSlug, syncFrom);
@@ -45,7 +58,7 @@ export class Octomirror {
       } 
 
       console.debug(`Processing event ${event.action} for org ${event.org} from ${new Date(event.created_at).toLocaleString()}`);
-      
+
       switch(event.action) {
         case 'org.create':
           await this.processOrgCreation(event.org);
@@ -119,19 +132,28 @@ export class Octomirror {
     const installationId = await installApp(this.broker.installationOctokit, this.enterpriseSlug, orgLogin, this.appSlug, this.appClientId);
     if (installationId) {
       // Get the ocktokit for this app.
-      const orgOctokit = await this.broker.getAppInstallationOctokit(orgLogin, installationId)
+      const orgOctokit = await this.broker.getAppInstallationOctokit(orgLogin, installationId);
       
-      //Get all repos from the doctcom org
-      const repos = await getRepos(orgOctokit, orgLogin);
+      /*
       // Create the org on GHES
       await createOrg(this.broker.ghesOctokit, orgLogin, this.ghesOwnerUser)
-      //Create all repos on the ghes org
-      for(const repo of repos) {
-        await createRepo(this.broker.ghesOctokit, repo)
-        const dotcomRepoUrl = await this.broker.getDotcomRepoUrl(orgLogin, repo.name);
-        const ghesRepoUrl = await this.broker.getGhesRepoUrl(orgLogin, repo.name);
-        mirrorRepo(dotcomRepoUrl, ghesRepoUrl);
-      }
+      */
+      //Create all teams on the GHES org
+      createOrgTeams(this.broker, orgLogin);
+      /*
+      //Create all repos on the GHES org
+      await createOrgRepos(this.broker, orgLogin);
+      */
+    }
+  }
+
+  async processOrgReset(orgLogin: string) {
+    // Intall the app on the dotcom org so that we can access its repositories
+    const installationId = await installApp(this.broker.installationOctokit, this.enterpriseSlug, orgLogin, this.appSlug, this.appClientId);
+    if (installationId) {
+      // Get the ocktokit for this app.
+      const orgOctokit = await this.broker.getAppInstallationOctokit(orgLogin, installationId);
+      deleteOrgTeams(this.broker, orgLogin);
     }
   }
 

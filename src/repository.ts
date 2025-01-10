@@ -1,10 +1,9 @@
-import { Octokit } from "octokit";
 import { EnterpriseOctokit, Repository } from "./types.js";
-import { FetchResult, GitResponseError, simpleGit, SimpleGit } from 'simple-git';
-import { access, constants, rename } from 'fs/promises';
+import { simpleGit, SimpleGit } from 'simple-git';
+import { access, constants } from 'fs/promises';
 import { rm } from "fs/promises";
 import { move } from 'fs-extra/esm';
-import { vi } from "vitest";
+import { OctokitBroker } from "./octokitBroker.js";
 
 const repoGraphqlQuery = `
 query($login: String!, $cursor: String) {
@@ -51,7 +50,7 @@ export async function createRepo(octokit: EnterpriseOctokit, repo: Repository): 
 }
 
 export async function deleteRepo(octokit: EnterpriseOctokit, repo: Repository) {
-  console.debug(`Deleting repo ${repo.name} with owner ${repo.org}`)
+  console.info(`Deleting repo ${repo.name} with owner ${repo.org}`)
     
   try {
     await octokit.rest.repos.delete({
@@ -71,7 +70,7 @@ export async function deleteRepo(octokit: EnterpriseOctokit, repo: Repository) {
 }
 
 export async function renameRepo(octokit: EnterpriseOctokit, repo: Repository, oldName: string) {
-  console.debug(`Renaming repo ${oldName} with owner ${repo.org} to ${repo.name}`)
+  console.info(`Renaming repo ${oldName} with owner ${repo.org} to ${repo.name}`)
   try {
     await octokit.rest.repos.update({
       'owner': repo.org, 
@@ -187,24 +186,25 @@ export async function mirrorRepo(dotcomRepoUrl: string, ghesRepoUrl: string) {
   }
 }
 
-export async function getRepos(ocotkit: Octokit, org: string): Promise<Repository[]> {
-  let repos: Repository[] = [];
+export async function createOrgRepos(broker: OctokitBroker, org: string) {
   let hasNextPage = true;
   let cursor = undefined;
 
   while (hasNextPage) {
-    let res = await ocotkit.graphql(repoGraphqlQuery, {login: org, cursor: cursor}) as { organization: { repositories: { nodes: Repository[], pageInfo: { hasNextPage: boolean, endCursor: string } } } };
+    let res = await broker.ghesOctokit.graphql(repoGraphqlQuery, {login: org, cursor: cursor}) as { organization: { repositories: { nodes: Repository[], pageInfo: { hasNextPage: boolean, endCursor: string } } } };
     let data = res.organization.repositories;
   
-    data.nodes.forEach((repo: Repository ) => {
+    data.nodes.forEach(async (repo: Repository ) => {
       repo.org = org;
-      repos.push(repo);
+      await createRepo(broker.ghesOctokit, repo);
+      const dotcomRepoUrl = await broker.getDotcomRepoUrl(org, repo.name);
+      const ghesRepoUrl = await broker.getGhesRepoUrl(org, repo.name);
+      mirrorRepo(dotcomRepoUrl, ghesRepoUrl);
     });
 
     hasNextPage = data.pageInfo.hasNextPage
     cursor = data.pageInfo.endCursor
   }
-  return repos;
 }
 
 
