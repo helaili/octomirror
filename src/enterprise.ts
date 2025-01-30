@@ -13,7 +13,7 @@ export async function auditEvents(octokit: EnterpriseOctokit, enterpriseSlug: st
   const iterator = await octokit.paginate.iterator(
     'GET /enterprises/{enterprise}/audit-log', {
     'enterprise': enterpriseSlug,
-    'phrase': 'action:org.create action:org.delete action:org.rename action:repo.create action:repo.destroy action:repo.rename',
+    'phrase': 'action:org.create action:org.delete action:org.rename action:repo.create action:repo.destroy action:repo.rename action:team.create action:team.delete action:team.rename',
     'order': 'desc',
     'per_page': 100,
     }

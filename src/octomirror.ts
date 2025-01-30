@@ -3,8 +3,8 @@ import { allInstallableOrganizations, createOrg, deleteOrg, renameOrg } from "./
 import { installApp } from "./installation.js";
 import { createOrgRepos, createRepo, deleteMirror, deleteRepo, mirrorRepo, renameMirror, renameRepo } from "./repository.js";
 import { auditEvents } from "./enterprise.js";
-import { OrganizationRenameAuditLogEvent, Repository, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent } from "./types.js";
-import { createOrgTeams, deleteOrgTeams } from "./teams.js";
+import { OrganizationRenameAuditLogEvent, Repository, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent, TeamAuditLogEvent } from "./types.js";
+import { createOrgTeams, createTeamFromAuditLog, deleteOrgTeams } from "./teams.js";
 
 export class Octomirror {
   broker: OctokitBroker;
@@ -121,6 +121,19 @@ export class Octomirror {
           await renameRepo(this.broker.ghesOctokit, repoToRename, repoRenameEvent.old_name);
           await renameMirror(repoToRename, repoRenameEvent.old_name);
           break;
+        case 'team.create':
+          const teamCreateEvent = event as TeamAuditLogEvent;
+          const teamName = teamCreateEvent.team?.split('/').pop() || '';
+          if(teamName === '') {
+            console.error(`Invalid team name for creation event: ${teamCreateEvent.team}`);
+            break;
+          }
+          await createTeamFromAuditLog(this.broker, teamCreateEvent.org, teamName, this.ghesOwnerUser);
+          break;
+        case 'team.delete':
+          break;
+        case 'team.rename':
+          break;
         default:
           console.log(`Ignoring event ${event.action}`);
       }
@@ -134,16 +147,14 @@ export class Octomirror {
       // Get the ocktokit for this app.
       const orgOctokit = await this.broker.getAppInstallationOctokit(orgLogin, installationId);
       
-      /*
       // Create the org on GHES
       await createOrg(this.broker.ghesOctokit, orgLogin, this.ghesOwnerUser)
-      */
+      
       //Create all teams on the GHES org
-      createOrgTeams(this.broker, orgLogin);
-      /*
+      await createOrgTeams(this.broker, orgLogin, this.ghesOwnerUser);
+      
       //Create all repos on the GHES org
       await createOrgRepos(this.broker, orgLogin);
-      */
     }
   }
 

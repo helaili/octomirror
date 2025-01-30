@@ -1,7 +1,6 @@
 import { EnterpriseOctokit } from './types.js';
-import { Octokit } from 'octokit';
 
-export async function allInstallableOrganizations(octokit: Octokit, enterpriseSlug: string): Promise<string[]> {
+export async function allInstallableOrganizations(octokit: EnterpriseOctokit, enterpriseSlug: string): Promise<string[]> {
   let hasMoreOrgs = true;
   let page = 1;
   let orgs: string[] = []; 
