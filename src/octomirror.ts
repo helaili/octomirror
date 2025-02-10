@@ -4,7 +4,7 @@ import { installApp } from "./installation.js";
 import { createOrgRepos, createRepo, deleteMirror, deleteRepo, mirrorRepo, renameMirror, renameRepo } from "./repository.js";
 import { auditEvents } from "./enterprise.js";
 import { OrganizationRenameAuditLogEvent, Repository, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent, TeamAuditLogEvent } from "./types.js";
-import { createOrgTeams, createTeamFromAuditLog, deleteOrgTeams } from "./teams.js";
+import { createOrgTeams, createTeamFromAuditLog, deleteOrgTeams, deleteTeam } from "./teams.js";
 
 export class Octomirror {
   broker: OctokitBroker;
@@ -131,8 +131,13 @@ export class Octomirror {
           await createTeamFromAuditLog(this.broker, teamCreateEvent.org, teamName, this.ghesOwnerUser);
           break;
         case 'team.delete':
-          break;
-        case 'team.rename':
+          const teamDeleteEvent = event as TeamAuditLogEvent;
+          const teamNameToDelete = teamDeleteEvent.team?.split('/').pop() || '';
+          if(teamNameToDelete === '') {
+            console.error(`Invalid team name for deletion event: ${teamDeleteEvent.team}`);
+            break;
+          }
+          await deleteTeam(this.broker.ghesOctokit, teamDeleteEvent.org, teamNameToDelete);
           break;
         default:
           console.log(`Ignoring event ${event.action}`);

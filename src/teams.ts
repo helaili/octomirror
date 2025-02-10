@@ -163,6 +163,23 @@ export async function deleteOrgTeams(broker: OctokitBroker, org: string) {
   }
 }
 
+export async function deleteTeam(ghesOctokit: any, org: string, teamName: string) {
+  console.info(`Deleting team ${teamName} in org ${org}...`);
+  try {
+    await ghesOctokit.rest.teams.deleteInOrg({
+      org,
+      team_slug: teamName
+    });
+    console.info(`Successfully deleted team ${teamName} in org ${org}`);
+  } catch (error: any) {
+    if (error.status === 404) {
+      console.info(`Team ${teamName} does not exist in org ${org}, skipping deletion`);
+    } else {
+      console.error(`Failed to delete team ${teamName} in org ${org}. Error is: ${error.message}`);
+    }
+  }
+}
+
 async function createTeam(broker: OctokitBroker,  org: string, team: Team, owner: string) {
   console.info(`Creating team ${team.name} in org ${org}...`)
   let createdTeam;
@@ -256,7 +273,7 @@ async function populateTeam(broker: OctokitBroker, org: string, team: Team) {
       'org': org, 
       'team_slug': team.slug
     });
-    
+
     if(externalGroup.data.groups.length > 0) {
       // The team is synced with an IdP group
       hasExternalGroup = true;
@@ -272,7 +289,6 @@ async function populateTeam(broker: OctokitBroker, org: string, team: Team) {
 
   if (!hasExternalGroup) {
     // The team is not synced with an IdP group, we need to add each user
-    console.debug(`Team ${team.name} in org ${org} is not synced, we need to add each user`);
     await addIndividualUsersToTeam(broker, org, team);
   }
 }
@@ -328,7 +344,7 @@ async function addIndividualUsersToTeam(broker: OctokitBroker, org: string, team
       cursor = res.organization.teams.nodes[0].members.pageInfo.endCursor;
 
       for (const edge of res.organization.teams.nodes[0].members.edges) {
-        const login = edge.node.login;
+        const login = edge.node.login.split('_')[0];
         const role = edge.role === 'MAINTAINER' ? 'maintainer' : 'member';
         try {
           await broker.ghesOctokit.rest.teams.addOrUpdateMembershipForUserInOrg({
