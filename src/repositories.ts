@@ -5,6 +5,7 @@ import { rm } from "fs/promises";
 import { move } from 'fs-extra/esm';
 import { OctokitBroker } from "./octokitBroker.js";
 import { Octomirror } from "./octomirror.js";
+import logger from './logger.js';
 
 const repoGraphqlQuery = `
 query($login: String!, $cursor: String) {
@@ -37,7 +38,7 @@ export async function processRepositoryEvent(om: Octomirror, event: RepositoryAu
       };
 
       if(repoToCreate.name === '') {
-        console.error(`Invalid repository name for creation event: ${repoCreateEvent.repo}`);
+        logger.error(`Invalid repository name for creation event: ${repoCreateEvent.repo}`);
         break;
       }
       await createRepo(om.broker.ghesOctokit, repoToCreate)
@@ -54,7 +55,7 @@ export async function processRepositoryEvent(om: Octomirror, event: RepositoryAu
       };
 
       if(repoToDelete.name === '') {
-        console.error(`Invalid repository name for deletions event: ${repoDeleteEvent.repo}`);
+        logger.error(`Invalid repository name for deletions event: ${repoDeleteEvent.repo}`);
         break;
       }
       await deleteRepo(om.broker.ghesOctokit, repoToDelete);
@@ -69,21 +70,21 @@ export async function processRepositoryEvent(om: Octomirror, event: RepositoryAu
       };
 
       if(repoToRename.name === '') {
-        console.error(`Invalid repository name for deletions event: ${repoRenameEvent.repo}`);
+        logger.error(`Invalid repository name for deletions event: ${repoRenameEvent.repo}`);
         break;
       }
       await renameRepo(om.broker.ghesOctokit, repoToRename, repoRenameEvent.old_name);
       await renameMirror(repoToRename, repoRenameEvent.old_name);
       break;
     default:
-      console.log(`Ignoring event ${event.action}`);
+      logger.info(`Ignoring event ${event.action}`);
       break;
   }
 }
 
 export async function createRepo(octokit: EnterpriseOctokit, repo: Repository): Promise<'created' | 'existing'> {
   // Use octokit to create the orgs
-  console.info(`Creating repo ${repo.name} with owner ${repo.org} and visibility ${repo.visibility.toLowerCase()}...`)
+  logger.info(`Creating repo ${repo.name} with owner ${repo.org} and visibility ${repo.visibility.toLowerCase()}...`)
     
   try {
     await octokit.rest.repos.createInOrg({
@@ -96,18 +97,18 @@ export async function createRepo(octokit: EnterpriseOctokit, repo: Repository): 
     if (requestError.status === 422) {
       for (const error of requestError.response?.data.errors) {
         if (error.message === 'name already exists on this account') {
-          console.log(`Repository ${repo.org}/${repo.name} already exists, skipping creation`);
+          logger.warn(`Repository ${repo.org}/${repo.name} already exists, skipping creation`);
           return 'existing';
         }
       }
     }
-    console.error(`Failed to create repo ${repo.org}/${repo.name}`);
+    logger.error(`Failed to create repo ${repo.org}/${repo.name}`);
     throw requestError;
   }
 }
 
 export async function deleteRepo(octokit: EnterpriseOctokit, repo: Repository) {
-  console.info(`Deleting repo ${repo.name} with owner ${repo.org}`)
+  logger.info(`Deleting repo ${repo.name} with owner ${repo.org}`)
     
   try {
     await octokit.rest.repos.delete({
@@ -116,18 +117,18 @@ export async function deleteRepo(octokit: EnterpriseOctokit, repo: Repository) {
     });
   } catch (requestError: any) {
     if (requestError.status === 403) {
-      console.info(`Repository ${repo.org}/${repo.name} could not be deleted, deleting is not allowed but the organization owner.`);
+      logger.warn(`Repository ${repo.org}/${repo.name} could not be deleted, deleting is not allowed but the organization owner.`);
     } else if (requestError.status === 404) {
-      console.info(`Repository ${repo.org}/${repo.name} could not be deleted, repository does not exist.`);
+      logger.warn(`Repository ${repo.org}/${repo.name} could not be deleted, repository does not exist.`);
     } else {
-      console.error(`Failed to delete repo ${repo.org}/${repo.name} with status: ${requestError.status}`);
+      logger.error(`Failed to delete repo ${repo.org}/${repo.name} with status: ${requestError.status}`);
       throw requestError;
     }
   }
 }
 
 export async function renameRepo(octokit: EnterpriseOctokit, repo: Repository, oldName: string) {
-  console.info(`Renaming repo ${oldName} with owner ${repo.org} to ${repo.name}`)
+  logger.info(`Renaming repo ${oldName} with owner ${repo.org} to ${repo.name}`)
   try {
     await octokit.rest.repos.update({
       'owner': repo.org, 
@@ -136,13 +137,13 @@ export async function renameRepo(octokit: EnterpriseOctokit, repo: Repository, o
     });
   } catch (requestError: any) {
     if (requestError.status === 403) {
-      console.info(`Repository ${repo.org}/${oldName} could not be renamed: forbidden.`);
+      logger.warn(`Repository ${repo.org}/${oldName} could not be renamed: forbidden.`);
     } else if (requestError.status === 404) {
-      console.info(`Repository ${repo.org}/${oldName} could not be renamed, repository does not exist.`);
+      logger.warn(`Repository ${repo.org}/${oldName} could not be renamed, repository does not exist.`);
     } else if (requestError.status === 422) {
       for (const error of requestError.response?.data.errors) {
         if (error.message === 'name already exists on this account') {
-          console.error(`Failed to rename repo ${repo.org}/${oldName} to ${repo.org}/${repo.name} has the repository already exists.`);
+          logger.error(`Failed to rename repo ${repo.org}/${oldName} to ${repo.org}/${repo.name} has the repository already exists.`);
           // Seems like the move was made already, so let's delete the old repo.
           deleteRepo(octokit, {
             name: oldName,
@@ -153,10 +154,10 @@ export async function renameRepo(octokit: EnterpriseOctokit, repo: Repository, o
         }
       }
 
-      console.error(`Failed to rename repo ${repo.org}/${oldName} with status: ${requestError.status}`);
+      logger.error(`Failed to rename repo ${repo.org}/${oldName} with status: ${requestError.status}`);
       throw requestError;
     } else {
-      console.error(`Failed to rename repo ${repo.org}/${oldName} with status: ${requestError.status}`);
+      logger.error(`Failed to rename repo ${repo.org}/${oldName} with status: ${requestError.status}`);
       throw requestError;
     }
   }
@@ -170,7 +171,7 @@ export async function renameMirror(repo: Repository, oldName: string): Promise<v
     await access(oldFolder, constants.F_OK);
     return move(oldFolder, newFolder, { overwrite: true });
   } catch {
-    console.error(`Could not rename directory ${oldFolder} as it does not exist`);
+    logger.error(`Could not rename directory ${oldFolder} as it does not exist`);
   }
 }
 
@@ -186,7 +187,7 @@ export async function mirrorRepo(dotcomRepoUrl: string, ghesRepoUrl: string) {
 
   const repoAndOrg = extractOrgAndRepo(dotcomRepoUrl);
   if (!repoAndOrg) {
-    console.error(`Invalid repository url: ${dotcomRepoUrl}`);
+    logger.error(`Invalid repository url: ${dotcomRepoUrl}`);
     return;
   }
   const repoFolder = `${WORKING_DIR}/${repoAndOrg.org}/${repoAndOrg.repo}`;
@@ -195,11 +196,11 @@ export async function mirrorRepo(dotcomRepoUrl: string, ghesRepoUrl: string) {
     try {
       // Check if the directory already exists
       await access(repoFolder, constants.F_OK);
-      console.debug(`Directory ${repoFolder} already exists`);
+      logger.debug(`Directory ${repoFolder} already exists`);
     } catch {
       // Clone with mirror flag as the directory doesn't exist yet
       await git.clone(dotcomRepoUrl,repoFolder, {'--mirror': null}).catch((error) => {
-        console.error(error.message);
+        logger.error(error.message);
         return;
       });
     }
@@ -220,24 +221,24 @@ export async function mirrorRepo(dotcomRepoUrl: string, ghesRepoUrl: string) {
 
     // Fetch all branches
     await git.fetch(['--prune', 'origin']).catch((error) => {
-      console.error(`Fetch failed for ${dotcomRepoUrl} with error: `, error.message);
+      logger.error(`Fetch failed for ${dotcomRepoUrl} with error: `, error.message);
       return;
     });
 
     // Push to GHES
     await git.push(['--mirror']).catch((error) => {
-      console.error(`Push failed for ${ghesRepoUrl} with error: `, error.message);
+      logger.error(`Push failed for ${ghesRepoUrl} with error: `, error.message);
       return;
     });
     
     // Remove tokens from the urls
-    console.debug(`Reset fetch to  https://${dotcomRepoUrl.split('@').pop() || ''}`);
+    logger.debug(`Reset fetch to  https://${dotcomRepoUrl.split('@').pop() || ''}`);
     await git.remote(['set-url', 'origin', `https://${dotcomRepoUrl.split('@').pop() || ''}`]);
 
-    console.debug(`Reset push to  https://${ghesRepoUrl.split('@').pop() || ''}`);
+    logger.debug(`Reset push to  https://${ghesRepoUrl.split('@').pop() || ''}`);
     await git.remote(['set-url', '--push', 'origin', `https://${ghesRepoUrl.split('@').pop() || ''}`]);
   } catch (error) {
-    console.error(`Git operation failed for : ${repoAndOrg.org}/${repoAndOrg.repo} with error: `, error);
+    logger.error(`Git operation failed for : ${repoAndOrg.org}/${repoAndOrg.repo} with error: `, error);
   } finally {
     await git.cwd('../');
   }
@@ -248,7 +249,7 @@ export async function createOrgRepos(broker: OctokitBroker, org: string) {
   let cursor = undefined;
   const orgOctokit = await broker.getAppInstallationOctokit(org);
 
-  console.debug(`Creating repos for org ${org}...`);
+  logger.debug(`Creating repos for org ${org}...`);
 
   while (hasNextPage) {
     let res = await orgOctokit.graphql(repoGraphqlQuery, {login: org, cursor: cursor}) as { organization: { repositories: { nodes: Repository[], pageInfo: { hasNextPage: boolean, endCursor: string } } } };
@@ -267,9 +268,9 @@ export async function createOrgRepos(broker: OctokitBroker, org: string) {
   }
 }
 
-
 export function extractOrgAndRepo(url: string): { org: string, repo: string } | null {
-  const regex = /https:\/\/[^\/]*\/([^\/]+)\/([^\/?.]+)/;
+  const regex = /\/([^\/]+)\/([^\/]+)$/;
+
   const match = url.match(regex);
   
   if (match && match.length === 3) {

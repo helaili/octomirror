@@ -3,8 +3,10 @@ import { allInstallableOrganizations, processOrganizationEvent, processOrgCreati
 import { installApp } from "./installation.js";
 import { processRepositoryEvent } from "./repositories.js";
 import { auditEvents } from "./enterprise.js";
-import { OrganizationAuditLogEvent, RepositoryAuditLogEvent, TeamAuditLogEvent } from "./types.js";
+import { OrganizationAuditLogEvent, RepositoryAuditLogEvent, RepositoryRoleAuditLogEvent, TeamAuditLogEvent } from "./types.js";
 import { deleteOrgTeams, processTeamEvent } from "./teams.js";
+import { processRepositoryRoleEvent } from "./repositoryRole.js";
+import logger from './logger.js';
 
 export class Octomirror {
   broker: OctokitBroker;
@@ -57,7 +59,7 @@ export class Octomirror {
         continue
       } 
 
-      console.debug(`Processing event ${event.action} for org ${event.org} from ${new Date(event.created_at).toLocaleString()}`);
+      logger.debug(`Processing event ${event.action} for org ${event.org} from ${new Date(event.created_at).toLocaleString()}`);
       const actionDomain = event.action.split('.')[0];
 
       switch(actionDomain) {
@@ -70,8 +72,11 @@ export class Octomirror {
         case 'team':
           processTeamEvent(this, event as TeamAuditLogEvent);
           break;
+        case 'role':
+          processRepositoryRoleEvent(this, event as RepositoryRoleAuditLogEvent);
+          break;
         default:
-          console.log(`Ignoring event ${event.action}`);
+          logger.info(`Ignoring event ${event.action}`);
       }
     }
   }

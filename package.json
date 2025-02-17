@@ -47,6 +47,7 @@
     "fs-extra": "^11.2.0",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^3.1.0",
-    "simple-git": "^3.27.0"
+    "simple-git": "^3.27.0",
+    "winston": "^3.17.0"
   }
 }

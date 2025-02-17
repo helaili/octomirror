@@ -1,19 +1,21 @@
 import { OctokitBroker } from './octokitBroker.js';
 import { CustomRepositoryRole, EnterpriseOctokit, ListCustomRepositoryRole, RepositoryRoleAuditLogEvent } from './types.js';
+import logger from './logger.js';
+import { Octomirror } from './octomirror.js';
 
-export async function processRepositoryRoleEvent(broker: OctokitBroker, event: RepositoryRoleAuditLogEvent) {
+export async function processRepositoryRoleEvent(om: Octomirror, event: RepositoryRoleAuditLogEvent) {
   switch(event.action) {
     case 'role.create':
-      await createRepositoryRole(broker, event.org, event.name);
+      await createRepositoryRole(om.broker, event.org, event.name);
       break;
     case 'role.update':
-      await updateRepositoryRole(broker, event.org, event.name);
+      await updateRepositoryRole(om.broker, event.org, event.name);
       break;
     case 'role.destroy':
-      await deleteRepositoryRole(broker, event.org, event.name);
+      await deleteRepositoryRole(om.broker, event.org, event.name);
       break;
     default:
-      console.log(`Ignoring event ${event.action}`);
+      logger.info(`Ignoring event ${event.action}`);
       break;
   }
 }
@@ -35,14 +37,14 @@ export async function createRepositoryRoles(broker: OctokitBroker, org: string) 
 }
 
 export async function createRepositoryRole(broker: OctokitBroker, org: string, roleName: string, role?: CustomRepositoryRole): Promise<void> {
-  console.log(`Creating custom role ${roleName} in org ${org}...`)
+  logger.info(`Creating custom role ${roleName} in org ${org}...`)
 
   if(!role) {
     role = await getCustomRepositoryRoleByNameOnDotcom(broker, org, roleName);
   }
 
   if(!role) {
-    console.error(`Failed to find custom repository role ${roleName} in org ${org} on dotcom. The role will not be created on GHES`);
+    logger.error(`Failed to find custom repository role ${roleName} in org ${org} on dotcom. The role will not be created on GHES`);
     return;
   }
 
@@ -58,19 +60,19 @@ export async function createRepositoryRole(broker: OctokitBroker, org: string, r
     if (requestError.status === 422 && requestError.response?.data.message === 'Name has already been taken') {
       await updateRepositoryRole(broker, org, role.name, role);
     } else {
-      console.error(`Failed to create custom role ${role.name} in org ${org}:`, requestError);
+      logger.error(`Failed to create custom role ${role.name} in org ${org}:`, requestError);
     }
   }
 }
 
 export async function updateRepositoryRole(broker: OctokitBroker, org: string, roleName: string, role?: CustomRepositoryRole): Promise<void> {
-  console.log(`Updating custom repository role ${roleName} in org ${org}...`)
+  logger.info(`Updating custom repository role ${roleName} in org ${org}...`)
 
   // We first need to find the role id on GHES
   let customRepositoryRoleOnGHES = await getCustomRepositoryRoleByNameOnGHES(broker, org, roleName);
 
   if (!customRepositoryRoleOnGHES) {
-    console.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES`);
+    logger.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES`);
     return;
   }
 
@@ -79,7 +81,7 @@ export async function updateRepositoryRole(broker: OctokitBroker, org: string, r
   }
 
   if(!role) {
-    console.error(`Failed to find custom repository role ${roleName} in org ${org} on dotcom. The role will not be udpated on GHES`);
+    logger.error(`Failed to find custom repository role ${roleName} in org ${org} on dotcom. The role will not be udpated on GHES`);
     return;
   }
 
@@ -93,19 +95,19 @@ export async function updateRepositoryRole(broker: OctokitBroker, org: string, r
     });
   } catch (requestError: any) {
     if (requestError.status === 404) {
-      console.error(`Failed to update custom role ${role.name} in org ${org}:`, requestError);
+      logger.error(`Failed to update custom role ${role.name} in org ${org}:`, requestError);
     }
   }
 }
 
 export async function deleteRepositoryRole(broker: OctokitBroker, org: string, roleName: string): Promise<void> {
-  console.log(`Deleting custom role ${roleName} in org ${org}...`)
+  logger.info(`Deleting custom role ${roleName} in org ${org}...`)
 
   // We first need to find the role id on GHES
   let customRepositoryRole = await getCustomRepositoryRoleByNameOnGHES(broker, org, roleName);
 
   if (customRepositoryRole === undefined) {
-    console.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES`);
+    logger.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES`);
     return;
   }
 
@@ -116,7 +118,7 @@ export async function deleteRepositoryRole(broker: OctokitBroker, org: string, r
     });
   } catch (requestError: any) {
     if (requestError.status === 404) {
-      console.error(`Failed to delete custom repository role ${roleName} in org ${org}:`, requestError);
+      logger.error(`Failed to delete custom repository role ${roleName} in org ${org}:`, requestError);
     }
   }
 }
@@ -143,7 +145,7 @@ async function getCustomRepositoryRoleByNameOnGHES(broker: OctokitBroker, org: s
   try {
     return getCustomRepositoryRoleByName(broker.ghesOctokit, org, roleName);
   } catch (error) {
-    console.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES:`, error);
+    logger.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES:`, error);
   }
   return;
 }
@@ -153,7 +155,7 @@ async function getCustomRepositoryRoleByNameOnDotcom(broker: OctokitBroker, org:
     const octokit = await broker.getAppInstallationOctokit(org);
     return getCustomRepositoryRoleByName(octokit, org, roleName);
   } catch (error) {
-    console.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES:`, error);
+    logger.error(`Failed to find custom repository role ${roleName} in org ${org} on GHES:`, error);
   }
   return;
 }

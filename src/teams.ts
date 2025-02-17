@@ -1,6 +1,7 @@
 import { SCIMGroup, GetTeamByName, Team, TeamToCreate, ListProvisionedGroupsEnterprise, TeamAuditLogEvent, TeamMemberAuditLogEvent, TeamAddOrUpdateRepositoryAuditLogEvent, TeamRepositoryAuditLogEvent } from "./types.js";
 import { OctokitBroker } from "./octokitBroker.js";
 import { Octomirror } from "./octomirror.js";
+import logger from './logger.js';
 
 const teamCache = new Map<string, Team>();
 const dotcomExternalGroups = new Map<string, number>();
@@ -49,11 +50,11 @@ async function loadDotComdotcomExternalGroups(broker: OctokitBroker, org: string
         }
       }
     } catch (error: any) {
-      console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error}`);
+      logger.error(`Failed to list external IDP groups for org ${org}. Error is: ${error}`);
       if(error.status === 404) {
-        console.debug(`Org ${org} doesn't have any external group`);
+        logger.debug(`Org ${org} doesn't have any external group`);
       } else {
-        console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
+        logger.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
       }
     }
   }
@@ -76,11 +77,11 @@ async function loadGHESdotcomExternalGroups(broker: OctokitBroker, org: string) 
         }
       }
     } catch (error: any) {
-      console.error(`Failed to list external IDP groups for org ${org} on GHES. Error is: ${error}`);
+      logger.error(`Failed to list external IDP groups for org ${org} on GHES. Error is: ${error}`);
       if(error.status === 404) {
-        console.debug(`Org ${org} doesn't have any external group`);
+        logger.debug(`Org ${org} doesn't have any external group`);
       } else {
-        console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
+        logger.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
       }
     }
   }
@@ -105,14 +106,14 @@ async function loadEnterpriseGroups(broker: OctokitBroker) {
         for(const group of data.Resources) {
           if(group.displayName) {
             scimGroups.set(group.displayName, group);
-            console.debug(`Adding SCIM group ${group.displayName} with externalId ${group.externalId} to cache`);
+            logger.debug(`Adding SCIM group ${group.displayName} with externalId ${group.externalId} to cache`);
           } else {
-            console.error(`SCIM roup ${group.externalId} has no displayName`);
+            logger.error(`SCIM roup ${group.externalId} has no displayName`);
           }
         }
       } while(startIndex < groupCount);
     } catch (error: any) {
-      console.error(`Failed to list external IDP groups for enterprise ${broker.enterpriseSlug}. Error is: ${error}`);
+      logger.error(`Failed to list external IDP groups for enterprise ${broker.enterpriseSlug}. Error is: ${error}`);
     }
   }
 }
@@ -122,7 +123,7 @@ export async function processTeamEvent(om: Octomirror, event: TeamAuditLogEvent)
     case 'team.create':
       const teamName = event.team?.split('/').pop() || '';
       if(teamName === '') {
-        console.error(`Invalid team name for creation event: ${event.team}`);
+        logger.error(`Invalid team name for creation event: ${event.team}`);
         break;
       }
       await createTeamFromAuditLog(om.broker, event.org, teamName, om.ghesOwnerUser);
@@ -130,14 +131,14 @@ export async function processTeamEvent(om: Octomirror, event: TeamAuditLogEvent)
     case 'team.destroy':
       const teamNameToDelete = event.team?.split('/').pop() || '';
       if(teamNameToDelete === '') {
-        console.error(`Invalid team name for deletion event: ${event.team}`);
+        logger.error(`Invalid team name for deletion event: ${event.team}`);
         break;
       }
       await deleteTeam(om.broker.ghesOctokit, event.org, teamNameToDelete);
       break;
     case 'team.rename':
       const teamRenameEvent = event as TeamAuditLogEvent;
-      console.error(`Unsupported action. Team ${teamRenameEvent.team} needs to be manually renamed in org ${teamRenameEvent.org}`);
+      logger.error(`Unsupported action. Team ${teamRenameEvent.team} needs to be manually renamed in org ${teamRenameEvent.org}`);
       break;
     case 'team.add_member':
       await addMemberToTeam(om.broker, event as TeamMemberAuditLogEvent);
@@ -167,7 +168,7 @@ export async function processTeamEvent(om: Octomirror, event: TeamAuditLogEvent)
       await promoteMaintainer(om.broker, event as TeamMemberAuditLogEvent);
       break;
     default:
-      console.log(`Ignoring event ${event.action}`);
+      logger.info(`Ignoring event ${event.action}`);
       break;
   }
 }
@@ -180,9 +181,9 @@ async function addMemberToTeam(broker: OctokitBroker, event: TeamMemberAuditLogE
       'username': event.user,
       'role': 'member',
     });
-    console.info(`Successfully added member ${event.user} to team ${event.team} in org ${event.org}`);
+    logger.info(`Successfully added member ${event.user} to team ${event.team} in org ${event.org}`);
   } catch (error: any) {
-    console.error(`Failed to add member ${event.user} to team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to add member ${event.user} to team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -193,9 +194,9 @@ async function removeMemberFromTeam(broker: OctokitBroker, event: TeamMemberAudi
       'team_slug': event.team,
       'username': event.user,
     });
-    console.info(`Successfully removed member ${event.user} from team ${event.team} in org ${event.org}`);
+    logger.info(`Successfully removed member ${event.user} from team ${event.team} in org ${event.org}`);
   } catch (error: any) {
-    console.error(`Failed to remove member ${event.user} from team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to remove member ${event.user} from team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -203,16 +204,18 @@ async function addRepositoryToTeam(broker: OctokitBroker, event: TeamAddOrUpdate
   try {
     let org = event.repo.split('/')[0];
     let repo = event.repo.split('/')[1];
+    const role_name = event.permission === 'read' ? 'pull' : event.permission;
+
     await broker.ghesOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
       'org': event.org,
       'team_slug': event.team,
       'owner': org,
       'repo': repo,
-      'permission': event.permission,
+      'permission': role_name,
     });
-    console.info(`Successfully added repository ${repo} to team ${event.team} in org ${org} with permission ${event.permission}`);
+    logger.info(`Successfully added repository ${repo} to team ${event.team} in org ${org} with permission ${event.permission}`);
   } catch (error: any) {
-    console.error(`Failed to add repository ${event.repo} to team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to add repository ${event.repo} to team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -226,9 +229,9 @@ async function removeRepositoryFromTeam(broker: OctokitBroker, event: TeamReposi
       'owner': org,
       'repo': repo,
     });
-    console.info(`Successfully removed repository ${repo} from team ${event.team} in org ${org}`);
+    logger.info(`Successfully removed repository ${repo} from team ${event.team} in org ${org}`);
   } catch (error: any) {
-    console.error(`Failed to remove repository ${event.repo} from team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to remove repository ${event.repo} from team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -243,9 +246,9 @@ async function updateRepositoryPermission(broker: OctokitBroker, event: TeamAddO
       'repo': repo,
       'permission': event.permission,
     });
-    console.info(`Successfully updated repository ${repo} permission to ${event.permission} for team ${event.team} in org ${org}`);
+    logger.info(`Successfully updated repository ${repo} permission to ${event.permission} for team ${event.team} in org ${org}`);
   } catch (error: any) {
-    console.error(`Failed to update repository ${event.repo} permission for team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to update repository ${event.repo} permission for team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -275,11 +278,11 @@ async function changeParentTeam(broker: OctokitBroker, event: TeamAuditLogEvent)
               'parent_team_id': parentTeam.id,
             });
         } catch (error: any) {
-          console.error(`Failed to update parent team ${dotcomTeam.parent.name} for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
+          logger.error(`Failed to update parent team ${dotcomTeam.parent.name} for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
           return;
         }
       } catch (error: any) {
-        console.error(`Failed to get parent team ${dotcomTeam.parent.name} for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
+        logger.error(`Failed to get parent team ${dotcomTeam.parent.name} for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
         return;
       }
     } else {
@@ -291,12 +294,12 @@ async function changeParentTeam(broker: OctokitBroker, event: TeamAuditLogEvent)
           'parent_team_id': null,
         });
       } catch (error: any) {
-        console.error(`Failed to unset the parent team for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
+        logger.error(`Failed to unset the parent team for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
         return;
       }
     }
   } catch (error: any) {
-    console.error(`Failed to get team ${event.team} in org ${event.org} on dotcom. The parent team will not be updated. Error is: ${error.message}`);
+    logger.error(`Failed to get team ${event.team} in org ${event.org} on dotcom. The parent team will not be updated. Error is: ${error.message}`);
     return;
   }  
 }
@@ -317,11 +320,11 @@ async function changeTeamPrivacy(broker: OctokitBroker, event: TeamAuditLogEvent
         'privacy': dotcomTeam.privacy === 'secret' ? 'secret' : 'closed',
       });
     } catch (error: any) {
-      console.error(`Failed to update privacy for team ${dotcomTeam.name} for team ${event.team} in org ${event.org} on GHES. Error is: ${error.message}`);
+      logger.error(`Failed to update privacy for team ${dotcomTeam.name} for team ${event.team} in org ${event.org} on GHES. Error is: ${error.message}`);
       return;
     }
   } catch (error: any) {
-    console.error(`Failed to get team ${event.team} in org ${event.org} on dotcom. The privacy will not be updated. Error is: ${error.message}`);
+    logger.error(`Failed to get team ${event.team} in org ${event.org} on dotcom. The privacy will not be updated. Error is: ${error.message}`);
     return;
   }  
 }
@@ -334,9 +337,9 @@ async function demoteMaintainer(broker: OctokitBroker, event: TeamMemberAuditLog
       'username': event.user,
       'role': 'member',
     });
-    console.info(`Successfully demoted maintainer ${event.user} to member in team ${event.team} in org ${event.org}`);
+    logger.info(`Successfully demoted maintainer ${event.user} to member in team ${event.team} in org ${event.org}`);
   } catch (error: any) {
-    console.error(`Failed to demote maintainer ${event.user} to member in team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to demote maintainer ${event.user} to member in team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -348,9 +351,9 @@ async function promoteMaintainer(broker: OctokitBroker, event: TeamMemberAuditLo
       'username': event.user,
       'role': 'maintainer',
     });
-    console.info(`Successfully promoted member ${event.user} to maintainer in team ${event.team} in org ${event.org}`);
+    logger.info(`Successfully promoted member ${event.user} to maintainer in team ${event.team} in org ${event.org}`);
   } catch (error: any) {
-    console.error(`Failed to promote member ${event.user} to maintainer in team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+    logger.error(`Failed to promote member ${event.user} to maintainer in team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -367,7 +370,7 @@ export async function createOrgTeams(broker: OctokitBroker, org: string, owner: 
     for(const team of response.data) {
       if(team.parent && !teamCache.get(`${org}.${team.parent.name}`)) {
         // We're not trying to create the team yet as the parent team is not in the cache and it might be created later
-        console.info(`Cache missed for parent team ${team.parent.name} of team ${team.name} in org ${org}`);
+        logger.info(`Cache missed for parent team ${team.parent.name} of team ${team.name} in org ${org}`);
         teamToRetry.push(team);
       } else {
         await createTeam(broker, org, team, owner);
@@ -383,7 +386,7 @@ export async function deleteOrgTeams(broker: OctokitBroker, org: string) {
   for await (const response of broker.dotcomOctokit.paginate.iterator(
     broker.dotcomOctokit.rest.teams.list,{ 'org': org, 'per_page': 100 },)) {
     for(const team of response.data) {
-      console.info(`Deleting team ${team.name} in org ${org}...`)
+      logger.info(`Deleting team ${team.name} in org ${org}...`)
       try {
         await broker.ghesOctokit.rest.teams.deleteInOrg({
           'org': org,
@@ -391,10 +394,10 @@ export async function deleteOrgTeams(broker: OctokitBroker, org: string) {
         });
       } catch (error: any) {
         if (error.status === 404) {
-          console.info(`Team ${team.name} does not exist, skipping deletion`)
+          logger.info(`Team ${team.name} does not exist, skipping deletion`)
           continue;
         } else {
-          console.error(`Failed to delete team ${team.name} in org ${org} with status: ${error.status}. Error is: ${error.message}`);
+          logger.error(`Failed to delete team ${team.name} in org ${org} with status: ${error.status}. Error is: ${error.message}`);
         }
       }
     }
@@ -402,24 +405,24 @@ export async function deleteOrgTeams(broker: OctokitBroker, org: string) {
 }
 
 export async function deleteTeam(ghesOctokit: any, org: string, teamName: string) {
-  console.info(`Deleting team ${teamName} in org ${org}...`);
+  logger.info(`Deleting team ${teamName} in org ${org}...`);
   try {
     await ghesOctokit.rest.teams.deleteInOrg({
       org,
       team_slug: teamName
     });
-    console.info(`Successfully deleted team ${teamName} in org ${org}`);
+    logger.info(`Successfully deleted team ${teamName} in org ${org}`);
   } catch (error: any) {
     if (error.status === 404) {
-      console.info(`Team ${teamName} does not exist in org ${org}, skipping deletion`);
+      logger.info(`Team ${teamName} does not exist in org ${org}, skipping deletion`);
     } else {
-      console.error(`Failed to delete team ${teamName} in org ${org}. Error is: ${error.message}`);
+      logger.error(`Failed to delete team ${teamName} in org ${org}. Error is: ${error.message}`);
     }
   }
 }
 
 async function createTeam(broker: OctokitBroker,  org: string, team: Team, owner: string) {
-  console.info(`Creating team ${team.name} in org ${org}...`)
+  logger.info(`Creating team ${team.name} in org ${org}...`)
   let createdTeam;
 
   try {
@@ -437,7 +440,7 @@ async function createTeam(broker: OctokitBroker,  org: string, team: Team, owner
         teamToCreate['parent_team_id'] = cachedParentTeam.id;
       } else {
         // API Call to get the parent team if it's not in the cache
-        console.debug(`Parent team ${team.parent.name} with slug ${team.parent.slug} of team ${team.name} in org ${org} not in cache, fetching...`);
+        logger.debug(`Parent team ${team.parent.name} with slug ${team.parent.slug} of team ${team.name} in org ${org} not in cache, fetching...`);
         // The parent team creation can take couple seconds to be available, so when both the parent and child are created together, we might fail at the first attempt
         let retryCount = 0;
         while(retryCount++ < PARENT_TEAM_LOOKUP_RETRY_LIMIT) {
@@ -450,10 +453,10 @@ async function createTeam(broker: OctokitBroker,  org: string, team: Team, owner
             teamCache.set(`${org}.${parentTeam.name}`, parentTeam as Team);
           } catch (error: any) {
             if(retryCount <= 3) {
-              console.info(`Failed to get parent team ${team.parent?.name} for team ${team.name} in org ${org}. Retrying ${retryCount}/3 in 5 sec...`);
+              logger.info(`Failed to get parent team ${team.parent?.name} for team ${team.name} in org ${org}. Retrying ${retryCount}/3 in 5 sec...`);
               setTimeout(() => {}, 5000);
             } else {
-              console.error(`Failed to get parent team ${team.parent?.name} for team ${team.name} in org ${org}. The team will not be created. Error is: ${error.message}`);
+              logger.error(`Failed to get parent team ${team.parent?.name} for team ${team.name} in org ${org}. The team will not be created. Error is: ${error.message}`);
               return;
             }
           }
@@ -472,9 +475,9 @@ async function createTeam(broker: OctokitBroker,  org: string, team: Team, owner
 
   } catch (error: any) {
     if (error.status === 422 && error.response?.data.message === 'Validation Failed') {
-      console.info(`Team ${team.name} already exists, skipping creation`);
+      logger.info(`Team ${team.name} already exists, skipping creation`);
     } else {
-      console.error(`Failed to create team ${team.name} in org ${org} with status: ${error.status}. Error is: ${error.message}`);
+      logger.error(`Failed to create team ${team.name} in org ${org} with status: ${error.status}. Error is: ${error.message}`);
     }
   } finally {
     if(createdTeam) {
@@ -498,7 +501,7 @@ export async function createTeamFromAuditLog(broker: OctokitBroker,  org: string
     }
     createTeam(broker, org, dotComTeam as Team, owner);
   }).catch((error: any) => {
-    console.error(`Failed to get team ${team} in org ${org}. The team will not be created. Error is: ${error.message}`);
+    logger.error(`Failed to get team ${team} in org ${org}. The team will not be created. Error is: ${error.message}`);
     return;
   });
 }
@@ -520,9 +523,9 @@ async function populateTeamMembers(broker: OctokitBroker, org: string, team: Tea
     } 
   } catch (error: any) {
     if(error.status === 400) {
-      console.debug(`Team ${team.name} in org ${org} is not synced with a group`);
+      logger.debug(`Team ${team.name} in org ${org} is not synced with a group`);
     } else {
-      console.error(`Failed to get external group for team ${team.name} in org ${org}. Error is: ${error.message}`);
+      logger.error(`Failed to get external group for team ${team.name} in org ${org}. Error is: ${error.message}`);
     }
   }
 
@@ -531,7 +534,6 @@ async function populateTeamMembers(broker: OctokitBroker, org: string, team: Tea
     await addIndividualUsersToTeam(broker, org, team);
   }
 }
-
 async function populateRepositories(broker: OctokitBroker, org: string, team: Team) {
   const orgOctokit = await broker.getAppInstallationOctokit(org);
 
@@ -545,30 +547,33 @@ async function populateRepositories(broker: OctokitBroker, org: string, team: Te
     )) {
       const repos = (data as any as {name: string; role_name: string; }[]);
       for(const repo of repos) {
-        console.debug(`Adding repository ${repo.name} with role ${repo.role_name} to team ${team.name} in org ${org}`);
+        logger.debug(`Adding repository ${repo.name} with role ${repo.role_name} to team ${team.slug} in org ${org}`);
+
+        const role_name = repo.role_name === 'read' ? 'pull' : repo.role_name;
+
         try {
           await broker.ghesOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
             org,
             team_slug: team.slug,
             owner: org,
             repo: repo.name,
-            permission: repo.role_name
+            permission: role_name
           });
         } catch (error: any) {
           if (error.status === 404) {
-            console.error(`Failed to add repository ${repo.name} to team ${team.slug} in org ${org}. Repository doesn't exist on GHES`);
+            logger.error(`Failed to add repository ${repo.name} to team ${team.slug} in org ${org}. Repository doesn't exist on GHES`);
           } else {
-            console.error(`Failed to add repository ${repo.name} to team ${team.slug} in org ${org}. Error is: ${error.message}`);
+            logger.error(`Failed to add repository ${repo.name} to team ${team.slug} in org ${org}. Error is: ${error.message}`);
           }
         }
       }
     }
   } catch (error: any) {
-    console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error}`);
+    logger.error(`Failed to list external IDP groups for org ${org}. Error is: ${error}`);
     if(error.status === 404) {
-      console.debug(`Org ${org} doesn't have any external group`);
+      logger.debug(`Org ${org} doesn't have any external group`);
     } else {
-      console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
+      logger.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
     }
   }
 }
@@ -577,7 +582,7 @@ async function mapTeamToExternalGroup(broker: OctokitBroker, org: string, team: 
   if(ghesExternalGroups.get(groupName)) {
     // Finding the id of that group on the GHES side.
     const group_id = ghesExternalGroups.get(groupName);
-    console.debug(`External group for team ${team.name} in org ${org} is ${groupName}. Its ID in GHES is ${group_id}`);
+    logger.debug(`External group for team ${team.name} in org ${org} is ${groupName}. Its ID in GHES is ${group_id}`);
     
     try {
       await broker.ghesOctokit.request('PATCH /orgs/{org}/teams/{team_slug}/external-groups', {
@@ -586,10 +591,10 @@ async function mapTeamToExternalGroup(broker: OctokitBroker, org: string, team: 
         'group_id': group_id
       });
     } catch (error: any) {
-      console.error(`Failed to map external group ${groupName} to team ${team.name} in org ${org}. Error is: ${error.message}`);
+      logger.error(`Failed to map external group ${groupName} to team ${team.name} in org ${org}. Error is: ${error.message}`);
     }
   } else {
-    console.error(`External group for team ${team.name} in org ${org} is ${groupName}. Its ID in GHES is not available.`);
+    logger.error(`External group for team ${team.name} in org ${org} is ${groupName}. Its ID in GHES is not available.`);
   }
 }
 
@@ -635,9 +640,9 @@ async function addIndividualUsersToTeam(broker: OctokitBroker, org: string, team
           });
         } catch (error: any) {
           if (error.status === 404) {
-            console.error(`Failed to add member ${login} to team ${team.slug} in org ${org}. User doesn't exist on GHES`);
+            logger.error(`Failed to add member ${login} to team ${team.slug} in org ${org}. User doesn't exist on GHES`);
           } else {
-            console.error(`Failed to add member ${login} to team ${team.slug} in org ${org}. Error is: ${error.message}`);
+            logger.error(`Failed to add member ${login} to team ${team.slug} in org ${org}. Error is: ${error.message}`);
           }
         }
       }

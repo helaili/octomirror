@@ -1,4 +1,5 @@
 import { Installation, GetInstallationTokenResponse, EnterpriseOctokit } from "./types.js";
+import logger from './logger.js';
 
 export async function installApp(octokit: EnterpriseOctokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string): Promise<number | undefined> {
   try {
@@ -11,20 +12,20 @@ export async function installApp(octokit: EnterpriseOctokit, enterpriseSlug: str
 
     switch (result.status) { 
       case 201 : 
-        console.log(`The app ${appSlug} was installed in ${orgLogin}`); 
+        logger.info(`The app ${appSlug} was installed in ${orgLogin}`); 
         return result.data.id;
         break; 
       case 200 : 
-        console.log(`The app ${appSlug} was already installed in ${orgLogin}`); 
+        logger.info(`The app ${appSlug} was already installed in ${orgLogin}`); 
         return result.data.id;
         break ; 
     }
   } catch (error: any) {
     if (error.status === 404 && error.response?.data.message === 'Not Found') {
-      console.log(`The app ${appSlug} could not be installed on ${orgLogin}, the organization does not exist`); 
+      logger.warn(`The app ${appSlug} could not be installed on ${orgLogin}, the organization does not exist`); 
       return;
     } else {
-      console.error(`Failed to create org ${orgLogin}`)
+      logger.error(`Failed to create org ${orgLogin}`)
       throw error
     }
   }
@@ -37,7 +38,7 @@ export async function getInstallation(octokit: EnterpriseOctokit, enterpriseSlug
   });
 
   if (installations.length == 0){
-    console.log(`${orgLogin} has no installations.`);
+    logger.info(`${orgLogin} has no installations.`);
     return undefined;
   } else {
     for(const installation of installations) {
@@ -65,7 +66,7 @@ export async function getInstallationToken(octokit: EnterpriseOctokit, enterpris
   if(result.status === 201) { 
     return result.data;
   } else {
-    console.log(`Failed to get installation token for ${appSlug} in ${orgLogin}`, result.data);
+    logger.error(`Failed to get installation token for ${appSlug} in ${orgLogin}`, result.data);
     return undefined
   }
 }

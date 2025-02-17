@@ -1,4 +1,5 @@
 import { AuditLogEvent, EnterpriseOctokit, OrganizationAuditLogEvent } from "./types.js";
+import logger from './logger.js';
 
 /*
  * Return the audit log events for the given enterprise from syncFrom date to now
@@ -34,9 +35,11 @@ export async function auditEvents(octokit: EnterpriseOctokit, enterpriseSlug: st
         // We have reached the date we want to sync from
         orgEvents.push(auditLogEvent)
       } else {
+        logger.info('Returning audit log events');
         return orgEvents.reverse();
       }
     }
   }
+  logger.info('Returning audit log events');
   return orgEvents.reverse();
 }

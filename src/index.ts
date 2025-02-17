@@ -3,6 +3,7 @@ export { Octomirror } from './octomirror.js';
 import * as fs from 'fs';
 import { Octomirror } from './octomirror.js';
 import { exit } from 'process';
+import logger from './logger.js';
 
 const DOTCOM_PAT = process.env.DOTCOM_PAT;
 const GHES_PAT = process.env.GHES_PAT;
@@ -15,6 +16,7 @@ const ENTERPRISE_SLUG = process.env.ENTERPRISE_SLUG;
 const APP_SLUG = process.env.APP_SLUG;
 
 if (!DOTCOM_PAT || !GHES_PAT || !GHES_URL || !GHES_OWNER || !APP_ID || !PRIVATE_KEY_FILE || !CLIENT_ID || !ENTERPRISE_SLUG || !APP_SLUG) {  
+  logger.error('Missing required environment variables');
   throw new Error('Missing required environment variables');
 }
 
@@ -25,24 +27,24 @@ const octomirror = new Octomirror(GHES_PAT, GHES_URL, GHES_OWNER, DOTCOM_PAT, EN
 // Wait 5 seconds for the broker to be ready
 const mode = process.argv[2];
 setTimeout(() => {
-  console.log('Octomirror should be ready');
+  logger.info('Octomirror should be ready');
   if(mode === 'init') {
-    console.log('Starting Octomirror with init mode');
+    logger.info('Starting Octomirror with init mode');
     octomirror.initMirror()
   } else if (mode === 'sync') {
     if( process.argv.length < 4) {
-      console.error('Missing required argument: date to sync from');
+      logger.error('Missing required argument: date to sync from');
       exit(1);
     }
     // convert the sync from to a date
     const syncFrom = new Date(process.argv[3] + ' UTC');
-    console.log(`Starting Octomirror with sync mode from ${syncFrom}`);
+    logger.info(`Starting Octomirror with sync mode from ${syncFrom}`);
     octomirror.syncMirror(syncFrom);
   } else if (mode === 'reset') {
-    console.log('Starting Octomirror with reset mode');
+    logger.info('Starting Octomirror with reset mode');
     octomirror.resetMirror()
   } else {
-    console.error('Invalid mode. Use "init" to seed the mirror or "sync" to update it');
+    logger.error('Invalid mode. Use "init" to seed the mirror or "sync" to update it');
     exit(1);
   }
 }, 3000);

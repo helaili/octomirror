@@ -2,6 +2,7 @@ import { App } from '@octokit/app';
 import { Octokit } from '@octokit/rest';
 import { getInstallationToken } from './installation.js';
 import { EnterpriseOctokit, EnterpriseOctokitBuilder } from './types.js';
+import logger from './logger.js';
 
 export class OctokitBroker {
   app: App;
@@ -28,7 +29,7 @@ export class OctokitBroker {
       this.dotcomApiUrl = 'https://api.github.com';
     }
 
-    console.log(`Dotcom pat is ${dotcompat} and ghes pat is ${ghespat}`);
+    logger.debug(`Dotcom pat is ${dotcompat} and ghes pat is ${ghespat}`);
         
     this.dotcomOctokit = new EnterpriseOctokitBuilder({
       auth: dotcompat,
@@ -91,8 +92,8 @@ export class OctokitBroker {
     } 
 
     if (this.installationTokens.has(org)) {
-      console.debug(`Installation token already exists for ${org}`);
-      console.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
+      logger.debug(`Installation token already exists for ${org}`);
+      logger.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
       return new EnterpriseOctokitBuilder({ 
         auth: this.installationTokens.get(org),
         baseUrl: apiUrl
@@ -102,9 +103,9 @@ export class OctokitBroker {
       if (!token) {
         throw new Error(`Failed to get token for ${org}`);
       } else {
-        console.log(`Installation token retrieved for ${org}`);
+        logger.info(`Installation token retrieved for ${org}`);
         this.installationTokens.set(org, token.token);
-        console.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
+        logger.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
         return new EnterpriseOctokitBuilder({ 
           auth: token.token,
           baseUrl: apiUrl
@@ -117,13 +118,13 @@ export class OctokitBroker {
   private async initialize() {
     const { data: appMeta } = await (this.app.octokit as EnterpriseOctokit).rest.apps.getAuthenticated();
     if(appMeta) {
-      console.log(`App authenticated as ${appMeta.name} owned by ${appMeta.owner?.login}`)
+      logger.info(`App authenticated as ${appMeta.name} owned by ${appMeta.owner?.login}`)
 
       for await (const { octokit, installation } of this.app.eachInstallation.iterator()) {
         if (installation.target_type === 'Enterprise') {
           this.enterpriseSlug = installation.account?.slug || 'undefined';
           this.installationOctokit = octokit as EnterpriseOctokit;
-          console.log(`OctokitBroker is ready for ${this.enterpriseSlug}`); 
+          logger.info(`OctokitBroker is ready for ${this.enterpriseSlug}`); 
         }
       }
     }
