@@ -7,13 +7,18 @@ import { AuditLogEvent, EnterpriseOctokit, OrganizationAuditLogEvent } from "./t
  * @param syncFrom The date to sync from
  * @returns The audit log events
  */
-export async function auditEvents(octokit: EnterpriseOctokit, enterpriseSlug: string, syncFrom: Date): Promise<OrganizationAuditLogEvent[]> {
+export async function auditEvents(octokit: EnterpriseOctokit, enterpriseSlug: string, syncFrom: Date): Promise<AuditLogEvent[]> {
   let orgEvents: OrganizationAuditLogEvent[] = [];
 
   const iterator = await octokit.paginate.iterator(
     'GET /enterprises/{enterprise}/audit-log', {
     'enterprise': enterpriseSlug,
-    'phrase': 'action:org.create action:org.delete action:org.rename action:repo.create action:repo.destroy action:repo.rename',
+    'phrase': 'action:org.create action:org.delete action:org.rename \
+               action:repo.create action:repo.destroy action:repo.rename \
+               action:team.create action:team.destroy action:team.rename \
+               action:team.add_member action:team.remove_member action:team.add_repository action:team.remove_repository action:team.update_repository_permission \
+               action:team.change_parent_team action:team.change_privacy action:team.demote_maintainer action:team.promote_maintainer \
+               action:role.update action:role.destroy action:role.create',
     'order': 'desc',
     'per_page': 100,
     }

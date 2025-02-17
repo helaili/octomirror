@@ -1,8 +1,6 @@
-import { Installation, GetInstallationTokenResponse } from "./types.js";
-import { Octokit } from "octokit";
+import { Installation, GetInstallationTokenResponse, EnterpriseOctokit } from "./types.js";
 
-
-export async function installApp(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string): Promise<number | undefined> {
+export async function installApp(octokit: EnterpriseOctokit, enterpriseSlug: string, orgLogin: string, appSlug: string, appClientId: string): Promise<number | undefined> {
   try {
     const result = await octokit.request('POST /enterprises/{enterprise}/apps/organizations/{org}/installations', { 
       enterprise: enterpriseSlug, 
@@ -32,7 +30,7 @@ export async function installApp(octokit: Octokit, enterpriseSlug: string, orgLo
   }
 }
 
-export async function getInstallation(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<Installation | undefined> {
+export async function getInstallation(octokit: EnterpriseOctokit, enterpriseSlug: string, orgLogin: string, appSlug: string) : Promise<Installation | undefined> {
   const installations: Installation[] = await octokit.paginate('GET /enterprises/{enterprise}/apps/organizations/{org}/installations', {
     enterprise: enterpriseSlug, 
     org: orgLogin
@@ -51,7 +49,7 @@ export async function getInstallation(octokit: Octokit, enterpriseSlug: string, 
   }
 }
 
-export async function getInstallationToken(octokit: Octokit, enterpriseSlug: string, orgLogin: string, appSlug: string, installationId?: number) : Promise<GetInstallationTokenResponse['data'] | undefined> {
+export async function getInstallationToken(octokit: EnterpriseOctokit, enterpriseSlug: string, orgLogin: string, appSlug: string, installationId?: number) : Promise<GetInstallationTokenResponse['data'] | undefined> {
   if(!installationId) {
     const installation = await getInstallation(octokit, enterpriseSlug, orgLogin, appSlug);
     if (installation) {

@@ -1,4 +1,5 @@
-import { Octokit, App } from 'octokit';
+import { App } from '@octokit/app';
+import { Octokit } from '@octokit/rest';
 import { getInstallationToken } from './installation.js';
 import { EnterpriseOctokit, EnterpriseOctokitBuilder } from './types.js';
 
@@ -7,34 +8,44 @@ export class OctokitBroker {
   appSlug: string;
   enterpriseSlug!: string;
   dotcomUrl: string;
+  dotcomApiUrl: string;
   dotcomOctokit: EnterpriseOctokit;
   ghesOctokit: EnterpriseOctokit;
-  installationOctokit!: Octokit;
+  installationOctokit!: EnterpriseOctokit;
   ghesPat: string;
   ghesUrl: string;
   installationTokens: Map<string, string> = new Map();
   
   constructor(ghespat: string, ghesUrl: string, dotcompat: string, appSlug: string, appId: number, privateKey: string, dotcomUrl: string = "https://github.com") {
-    this.app = new App({ appId, privateKey });
     this.appSlug = appSlug;
     this.ghesPat = ghespat;
     this.ghesUrl = ghesUrl;
     this.dotcomUrl = dotcomUrl;
 
     // We should be able to get rid of this as soon as Enteprise GitHub Apps can acces more endpoints
-    let apiUrl = `${this.dotcomUrl}/api/v3`;
+    this.dotcomApiUrl = `${this.dotcomUrl}/api/v3`;
     if(this.dotcomUrl === "https://github.com") {
-      apiUrl = 'https://api.github.com';
+      this.dotcomApiUrl = 'https://api.github.com';
     }
+
+    console.log(`Dotcom pat is ${dotcompat} and ghes pat is ${ghespat}`);
         
     this.dotcomOctokit = new EnterpriseOctokitBuilder({
       auth: dotcompat,
-      baseUrl: apiUrl
+      baseUrl: this.dotcomApiUrl
     });
     this.ghesOctokit = new EnterpriseOctokitBuilder({
       auth: ghespat,
       baseUrl: `${ghesUrl}/api/v3`
     });
+
+    const Octokit = EnterpriseOctokitBuilder.defaults({
+      baseUrl: this.dotcomApiUrl,
+    });
+
+
+    this.app = new App({ appId, privateKey, Octokit });
+    
     this.initialize();
   }
 
@@ -69,7 +80,7 @@ export class OctokitBroker {
   /* 
    * Retrieve an octokit authenticated on the organization
    */
-  public async getAppInstallationOctokit(org:string, installationId?: number) : Promise<Octokit> {
+  public async getAppInstallationOctokit(org:string, installationId?: number) : Promise<EnterpriseOctokit> {
     if (!this.installationOctokit) {
       throw new Error('OctokitBroker not initialized');
     }
@@ -80,8 +91,9 @@ export class OctokitBroker {
     } 
 
     if (this.installationTokens.has(org)) {
-      console.log(`Installation token already exists for ${org}`);
-      return new Octokit({ 
+      console.debug(`Installation token already exists for ${org}`);
+      console.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
+      return new EnterpriseOctokitBuilder({ 
         auth: this.installationTokens.get(org),
         baseUrl: apiUrl
       });
@@ -92,23 +104,25 @@ export class OctokitBroker {
       } else {
         console.log(`Installation token retrieved for ${org}`);
         this.installationTokens.set(org, token.token);
-        return new Octokit({ 
+        console.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
+        return new EnterpriseOctokitBuilder({ 
           auth: token.token,
           baseUrl: apiUrl
         });
       }
     }
+    
   }
 
   private async initialize() {
-    const { data: appMeta } = await this.app.octokit.rest.apps.getAuthenticated();
+    const { data: appMeta } = await (this.app.octokit as EnterpriseOctokit).rest.apps.getAuthenticated();
     if(appMeta) {
       console.log(`App authenticated as ${appMeta.name} owned by ${appMeta.owner?.login}`)
 
       for await (const { octokit, installation } of this.app.eachInstallation.iterator()) {
         if (installation.target_type === 'Enterprise') {
           this.enterpriseSlug = installation.account?.slug || 'undefined';
-          this.installationOctokit = octokit;
+          this.installationOctokit = octokit as EnterpriseOctokit;
           console.log(`OctokitBroker is ready for ${this.enterpriseSlug}`); 
         }
       }
