@@ -32,8 +32,7 @@ describe('getInstallationToken', () => {
         repository_selection: 'all' 
       },
       headers: {},
-      url: '',
-      retryCount: 0
+      url: ''
     };
 
     (broker.installationOctokit.paginate as unknown as Mock).mockResolvedValue([installation]);
