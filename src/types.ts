@@ -1,11 +1,8 @@
 import { Octokit } from '@octokit/rest';
 import { enterpriseCloud } from "@octokit/plugin-enterprise-cloud";
 import { paginateRest } from "@octokit/plugin-paginate-rest";
-import { throttling } from "@octokit/plugin-throttling";
-import { retry } from "@octokit/plugin-retry";
-import type {operations as GhecOperations} from '@octokit/openapi-types-ghec';
+import type { operations as GhecOperations } from '@octokit/openapi-types-ghec';
 import {
-  GetResponseTypeFromEndpointMethod,
   GetResponseDataTypeFromEndpointMethod,
   Endpoints
 } from "@octokit/types";
@@ -23,8 +20,6 @@ export interface AuditLogEvent {
   business: string;
   org: string;
 }
-
-
 
 export interface OrganizationAuditLogEvent extends AuditLogEvent {
 }
@@ -46,6 +41,19 @@ export interface TeamAuditLogEvent extends AuditLogEvent {
   team: string;
 }
 
+export interface TeamMemberAuditLogEvent extends TeamAuditLogEvent {
+  user: string;
+}
+
+export interface TeamRepositoryAuditLogEvent extends TeamAuditLogEvent {
+  repo: string;
+}
+
+export interface TeamAddOrUpdateRepositoryAuditLogEvent extends TeamRepositoryAuditLogEvent {
+  permission: string;
+}
+
+
 // TODO: this should be replaced by an Octokit generated type 
 // once GET /enterprises/{enterprise}/apps/organizations/{org}/installations is supported  
 export interface Installation {
@@ -54,10 +62,13 @@ export interface Installation {
   client_id: string;
 }
 
+type Defined<T> = T extends undefined ? never : T;
+type ArrayElement<ArrayType extends readonly unknown[]> = ArrayType[number];
+
 export type GetInstallationTokenResponse = Endpoints['POST /app/installations/{installation_id}/access_tokens']["response"];
 
 export type ListProvisionedGroupsEnterprise = GhecOperations['enterprise-admin/list-provisioned-groups-enterprise']['responses']['200']['content']['application/scim+json'];
-export type SCIMGroup = GhecOperations['enterprise-admin/list-provisioned-groups-enterprise']['responses']['200']['content']['application/scim+json']['Resources'][number];
+export type SCIMGroup = ArrayElement<GhecOperations['enterprise-admin/list-provisioned-groups-enterprise']['responses']['200']['content']['application/scim+json']['Resources']>;
 
 export interface Repository {
   name: string;
@@ -82,3 +93,5 @@ export interface TeamToCreate {
   maintainers: string[]
 };
 
+export type ListCustomRepositoryRole = Defined<GhecOperations['orgs/list-custom-repo-roles']['responses']['200']['content']['application/json']['custom_roles']>;
+export type CustomRepositoryRole = ArrayElement<Defined<ListCustomRepositoryRole>>;

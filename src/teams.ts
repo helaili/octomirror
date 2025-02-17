@@ -1,5 +1,6 @@
-import { SCIMGroup, GetTeamByName, Team, TeamToCreate, ListProvisionedGroupsEnterprise } from "./types.js";
+import { SCIMGroup, GetTeamByName, Team, TeamToCreate, ListProvisionedGroupsEnterprise, TeamAuditLogEvent, TeamMemberAuditLogEvent, TeamAddOrUpdateRepositoryAuditLogEvent, TeamRepositoryAuditLogEvent } from "./types.js";
 import { OctokitBroker } from "./octokitBroker.js";
+import { Octomirror } from "./octomirror.js";
 
 const teamCache = new Map<string, Team>();
 const dotcomExternalGroups = new Map<string, number>();
@@ -113,6 +114,243 @@ async function loadEnterpriseGroups(broker: OctokitBroker) {
     } catch (error: any) {
       console.error(`Failed to list external IDP groups for enterprise ${broker.enterpriseSlug}. Error is: ${error}`);
     }
+  }
+}
+
+export async function processTeamEvent(om: Octomirror, event: TeamAuditLogEvent) {
+  switch(event.action) {
+    case 'team.create':
+      const teamName = event.team?.split('/').pop() || '';
+      if(teamName === '') {
+        console.error(`Invalid team name for creation event: ${event.team}`);
+        break;
+      }
+      await createTeamFromAuditLog(om.broker, event.org, teamName, om.ghesOwnerUser);
+      break;
+    case 'team.destroy':
+      const teamNameToDelete = event.team?.split('/').pop() || '';
+      if(teamNameToDelete === '') {
+        console.error(`Invalid team name for deletion event: ${event.team}`);
+        break;
+      }
+      await deleteTeam(om.broker.ghesOctokit, event.org, teamNameToDelete);
+      break;
+    case 'team.rename':
+      const teamRenameEvent = event as TeamAuditLogEvent;
+      console.error(`Unsupported action. Team ${teamRenameEvent.team} needs to be manually renamed in org ${teamRenameEvent.org}`);
+      break;
+    case 'team.add_member':
+      await addMemberToTeam(om.broker, event as TeamMemberAuditLogEvent);
+      break;
+    case 'team.remove_member':
+      await removeMemberFromTeam(om.broker, event as TeamMemberAuditLogEvent);
+      break;
+    case 'team.add_repository':
+      await addRepositoryToTeam(om.broker, event as TeamAddOrUpdateRepositoryAuditLogEvent);
+      break;
+    case 'team.remove_repository':
+      await removeRepositoryFromTeam(om.broker, event as TeamRepositoryAuditLogEvent);
+      break;
+    case 'team.update_repository_permission':
+      await updateRepositoryPermission(om.broker, event as TeamAddOrUpdateRepositoryAuditLogEvent);
+      break;
+    case 'team.change_parent_team':
+      await changeParentTeam(om.broker, event);
+      break;
+    case 'team.change_privacy':
+      await changeTeamPrivacy(om.broker, event);
+      break;
+    case 'team.demote_maintainer':
+      await demoteMaintainer(om.broker, event as TeamMemberAuditLogEvent);
+      break;
+    case 'team.promote_maintainer':
+      await promoteMaintainer(om.broker, event as TeamMemberAuditLogEvent);
+      break;
+    default:
+      console.log(`Ignoring event ${event.action}`);
+      break;
+  }
+}
+
+async function addMemberToTeam(broker: OctokitBroker, event: TeamMemberAuditLogEvent) {
+  try {
+    await broker.ghesOctokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'username': event.user,
+      'role': 'member',
+    });
+    console.info(`Successfully added member ${event.user} to team ${event.team} in org ${event.org}`);
+  } catch (error: any) {
+    console.error(`Failed to add member ${event.user} to team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+  }
+}
+
+async function removeMemberFromTeam(broker: OctokitBroker, event: TeamMemberAuditLogEvent) {
+  try {
+    await broker.ghesOctokit.rest.teams.removeMembershipForUserInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'username': event.user,
+    });
+    console.info(`Successfully removed member ${event.user} from team ${event.team} in org ${event.org}`);
+  } catch (error: any) {
+    console.error(`Failed to remove member ${event.user} from team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+  }
+}
+
+async function addRepositoryToTeam(broker: OctokitBroker, event: TeamAddOrUpdateRepositoryAuditLogEvent) {
+  try {
+    let org = event.repo.split('/')[0];
+    let repo = event.repo.split('/')[1];
+    await broker.ghesOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'owner': org,
+      'repo': repo,
+      'permission': event.permission,
+    });
+    console.info(`Successfully added repository ${repo} to team ${event.team} in org ${org} with permission ${event.permission}`);
+  } catch (error: any) {
+    console.error(`Failed to add repository ${event.repo} to team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+  }
+}
+
+async function removeRepositoryFromTeam(broker: OctokitBroker, event: TeamRepositoryAuditLogEvent) {
+  try {
+    let org = event.repo.split('/')[0];
+    let repo = event.repo.split('/')[1];
+    await broker.ghesOctokit.rest.teams.removeRepoInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'owner': org,
+      'repo': repo,
+    });
+    console.info(`Successfully removed repository ${repo} from team ${event.team} in org ${org}`);
+  } catch (error: any) {
+    console.error(`Failed to remove repository ${event.repo} from team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+  }
+}
+
+async function updateRepositoryPermission(broker: OctokitBroker, event: TeamAddOrUpdateRepositoryAuditLogEvent) {
+  try {
+    let org = event.repo.split('/')[0];
+    let repo = event.repo.split('/')[1];
+    await broker.ghesOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'owner': org,
+      'repo': repo,
+      'permission': event.permission,
+    });
+    console.info(`Successfully updated repository ${repo} permission to ${event.permission} for team ${event.team} in org ${org}`);
+  } catch (error: any) {
+    console.error(`Failed to update repository ${event.repo} permission for team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+  }
+}
+
+async function changeParentTeam(broker: OctokitBroker, event: TeamAuditLogEvent) {
+  // The audit log event doesn't mention the old parent team, so we need to get the team data on dotcom to find it
+  const octokit = await broker.getAppInstallationOctokit(event.org);
+  try {
+    const {data: dotcomTeam}  = await octokit.rest.teams.getByName({
+      'org': event.org,
+      'team_slug': event.team
+    });
+
+    if(dotcomTeam.parent) {
+      // Parent was set, we need to find the parent team on GHES
+      try {
+        // Getting the parent team on GHES
+        const { data: parentTeam } = await broker.ghesOctokit.rest.teams.getByName({
+          'org': event.org,
+          'team_slug': dotcomTeam.parent.slug,
+        });
+
+        // Setting the parent team on the actual team on GHES
+        try {
+            await broker.ghesOctokit.rest.teams.updateInOrg({
+              'org': event.org,
+              'team_slug': dotcomTeam.slug,
+              'parent_team_id': parentTeam.id,
+            });
+        } catch (error: any) {
+          console.error(`Failed to update parent team ${dotcomTeam.parent.name} for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
+          return;
+        }
+      } catch (error: any) {
+        console.error(`Failed to get parent team ${dotcomTeam.parent.name} for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
+        return;
+      }
+    } else {
+      // Parent was removed, this now is a top level team
+      try {
+        await broker.ghesOctokit.rest.teams.updateInOrg({
+          'org': event.org,
+          'team_slug': event.team,
+          'parent_team_id': null,
+        });
+      } catch (error: any) {
+        console.error(`Failed to unset the parent team for team ${event.team} in org ${event.org} on GHES. The parent team will not be updated. Error is: ${error.message}`);
+        return;
+      }
+    }
+  } catch (error: any) {
+    console.error(`Failed to get team ${event.team} in org ${event.org} on dotcom. The parent team will not be updated. Error is: ${error.message}`);
+    return;
+  }  
+}
+
+async function changeTeamPrivacy(broker: OctokitBroker, event: TeamAuditLogEvent) {
+  // The audit log event doesn't mention the value of the privacy field, so we need to get the team data on dotcom to find it
+  const octokit = await broker.getAppInstallationOctokit(event.org);
+  try {
+    const {data: dotcomTeam}  = await octokit.rest.teams.getByName({
+      'org': event.org,
+      'team_slug': event.team
+    });
+    
+    try {
+      await broker.ghesOctokit.rest.teams.updateInOrg({
+        'org': event.org,
+        'team_slug': event.team,
+        'privacy': dotcomTeam.privacy === 'secret' ? 'secret' : 'closed',
+      });
+    } catch (error: any) {
+      console.error(`Failed to update privacy for team ${dotcomTeam.name} for team ${event.team} in org ${event.org} on GHES. Error is: ${error.message}`);
+      return;
+    }
+  } catch (error: any) {
+    console.error(`Failed to get team ${event.team} in org ${event.org} on dotcom. The privacy will not be updated. Error is: ${error.message}`);
+    return;
+  }  
+}
+
+async function demoteMaintainer(broker: OctokitBroker, event: TeamMemberAuditLogEvent) {
+  try {
+    await broker.ghesOctokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'username': event.user,
+      'role': 'member',
+    });
+    console.info(`Successfully demoted maintainer ${event.user} to member in team ${event.team} in org ${event.org}`);
+  } catch (error: any) {
+    console.error(`Failed to demote maintainer ${event.user} to member in team ${event.team} in org ${event.org}. Error is: ${error.message}`);
+  }
+}
+
+async function promoteMaintainer(broker: OctokitBroker, event: TeamMemberAuditLogEvent) {
+  try {
+    await broker.ghesOctokit.rest.teams.addOrUpdateMembershipForUserInOrg({
+      'org': event.org,
+      'team_slug': event.team,
+      'username': event.user,
+      'role': 'maintainer',
+    });
+    console.info(`Successfully promoted member ${event.user} to maintainer in team ${event.team} in org ${event.org}`);
+  } catch (error: any) {
+    console.error(`Failed to promote member ${event.user} to maintainer in team ${event.team} in org ${event.org}. Error is: ${error.message}`);
   }
 }
 
@@ -243,7 +481,8 @@ async function createTeam(broker: OctokitBroker,  org: string, team: Team, owner
       team.id = createdTeam.data.id;
       teamCache.set(`${org}.${team.name}`, team);
     }
-    populateTeam(broker, org, team);
+    populateTeamMembers(broker, org, team);
+    populateRepositories(broker, org, team);
   } 
 }
 
@@ -264,7 +503,7 @@ export async function createTeamFromAuditLog(broker: OctokitBroker,  org: string
   });
 }
 
-async function populateTeam(broker: OctokitBroker, org: string, team: Team) {
+async function populateTeamMembers(broker: OctokitBroker, org: string, team: Team) {
   let hasExternalGroup = false;
   const orgOctokit = await broker.getAppInstallationOctokit(org);
     
@@ -290,6 +529,47 @@ async function populateTeam(broker: OctokitBroker, org: string, team: Team) {
   if (!hasExternalGroup) {
     // The team is not synced with an IdP group, we need to add each user
     await addIndividualUsersToTeam(broker, org, team);
+  }
+}
+
+async function populateRepositories(broker: OctokitBroker, org: string, team: Team) {
+  const orgOctokit = await broker.getAppInstallationOctokit(org);
+
+  try {
+    for await (const { data } of orgOctokit.paginate.iterator(
+      'GET /orgs/{org}/teams/{team}/repos', {
+      'org': org,
+      'team': team.slug,
+      'per_page': 100
+      },
+    )) {
+      const repos = (data as any as {name: string; role_name: string; }[]);
+      for(const repo of repos) {
+        console.debug(`Adding repository ${repo.name} with role ${repo.role_name} to team ${team.name} in org ${org}`);
+        try {
+          await broker.ghesOctokit.rest.teams.addOrUpdateRepoPermissionsInOrg({
+            org,
+            team_slug: team.slug,
+            owner: org,
+            repo: repo.name,
+            permission: repo.role_name
+          });
+        } catch (error: any) {
+          if (error.status === 404) {
+            console.error(`Failed to add repository ${repo.name} to team ${team.slug} in org ${org}. Repository doesn't exist on GHES`);
+          } else {
+            console.error(`Failed to add repository ${repo.name} to team ${team.slug} in org ${org}. Error is: ${error.message}`);
+          }
+        }
+      }
+    }
+  } catch (error: any) {
+    console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error}`);
+    if(error.status === 404) {
+      console.debug(`Org ${org} doesn't have any external group`);
+    } else {
+      console.error(`Failed to list external IDP groups for org ${org}. Error is: ${error.message}`);
+    }
   }
 }
 

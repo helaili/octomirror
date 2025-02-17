@@ -33,6 +33,7 @@ Create an enterprise app on the Cloud instance with the following permissions. D
 ### Organization permissions
 - Administration: Read only
 - Members: Read & write
+- Custom organization roles: Read only
 
 ### Enterprise permissions
 - Enterprise organization installation repositories: Read & write

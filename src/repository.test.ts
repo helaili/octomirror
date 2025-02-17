@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractOrgAndRepo } from './repository.js';
+import { extractOrgAndRepo } from './repositories.js';
 
 describe('extractOrgAndRepo', () => {
   it('should extract org and repo from a valid URL', () => {
