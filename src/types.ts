@@ -53,6 +53,10 @@ export interface TeamAddOrUpdateRepositoryAuditLogEvent extends TeamRepositoryAu
   permission: string;
 }
 
+export interface RepositoryRoleAuditLogEvent extends AuditLogEvent {
+  name: string;
+  base_role: string;
+}
 
 // TODO: this should be replaced by an Octokit generated type 
 // once GET /enterprises/{enterprise}/apps/organizations/{org}/installations is supported  
