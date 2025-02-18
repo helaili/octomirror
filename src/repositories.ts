@@ -1,10 +1,9 @@
-import { EnterpriseOctokit, Repository, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent } from "./types.js";
+import { EnterpriseOctokit, Repository } from "./types.js";
 import { simpleGit, SimpleGit } from 'simple-git';
 import { access, constants } from 'fs/promises';
 import { rm } from "fs/promises";
 import { move } from 'fs-extra/esm';
 import { OctokitBroker } from "./octokitBroker.js";
-import { Octomirror } from "./octomirror.js";
 import logger from './logger.js';
 
 const repoGraphqlQuery = `
@@ -26,68 +25,12 @@ query($login: String!, $cursor: String) {
 
 const WORKING_DIR = process.env.WORKING_DIR || '/tmp';
 
-
-export async function processRepositoryEvent(om: Octomirror, event: RepositoryAuditLogEvent) {
-  switch(event.action) {
-    case 'repo.create':
-      const repoCreateEvent = event as RepositoryAuditLogEvent;
-      const repoToCreate: Repository = {
-        org: repoCreateEvent.org,
-        name: repoCreateEvent.repo.split('/').pop() || '', 
-        visibility: repoCreateEvent.visibility
-      };
-
-      if(repoToCreate.name === '') {
-        logger.error(`Invalid repository name for creation event: ${repoCreateEvent.repo}`);
-        break;
-      }
-      await createRepo(om.broker.ghesOctokit, repoToCreate)
-      const dotcomRepoUrl = await om.broker.getDotcomRepoUrl(repoToCreate.org, repoToCreate.name);
-      const ghesRepoUrl = await om.broker.getGhesRepoUrl(repoToCreate.org, repoToCreate.name);
-      await mirrorRepo(dotcomRepoUrl, ghesRepoUrl);
-      break;
-    case 'repo.destroy':
-      const repoDeleteEvent = event as RepositoryAuditLogEvent;
-      const repoToDelete: Repository = {
-        org: repoDeleteEvent.org,
-        name: repoDeleteEvent.repo.split('/').pop() || '', 
-        visibility: repoDeleteEvent.visibility
-      };
-
-      if(repoToDelete.name === '') {
-        logger.error(`Invalid repository name for deletions event: ${repoDeleteEvent.repo}`);
-        break;
-      }
-      await deleteRepo(om.broker.ghesOctokit, repoToDelete);
-      await deleteMirror(repoToDelete);
-      break;
-    case 'repo.rename':
-      const repoRenameEvent = event as RepositoryRenameAuditLogEvent;
-      const repoToRename: Repository = {
-        org: repoRenameEvent.org,
-        name: repoRenameEvent.repo.split('/').pop() || '', 
-        visibility: repoRenameEvent.visibility
-      };
-
-      if(repoToRename.name === '') {
-        logger.error(`Invalid repository name for deletions event: ${repoRenameEvent.repo}`);
-        break;
-      }
-      await renameRepo(om.broker.ghesOctokit, repoToRename, repoRenameEvent.old_name);
-      await renameMirror(repoToRename, repoRenameEvent.old_name);
-      break;
-    default:
-      logger.info(`Ignoring event ${event.action}`);
-      break;
-  }
-}
-
 export async function createRepo(octokit: EnterpriseOctokit, repo: Repository): Promise<'created' | 'existing'> {
   // Use octokit to create the orgs
   logger.info(`Creating repo ${repo.name} with owner ${repo.org} and visibility ${repo.visibility.toLowerCase()}...`)
     
   try {
-    await octokit.rest.repos.createInOrg({
+    await octokit.repos.createInOrg({
       'org': repo.org, 
       'name': repo.name,
       'visibility': repo.visibility.toLowerCase() as any 
@@ -185,7 +128,7 @@ export async function mirrorRepo(dotcomRepoUrl: string, ghesRepoUrl: string) {
   const git: SimpleGit = simpleGit(WORKING_DIR);
   // Get the org and repo name from the url to create the folder
 
-  const repoAndOrg = extractOrgAndRepo(dotcomRepoUrl);
+  const repoAndOrg = extractOrgAndRepoFromURL(dotcomRepoUrl);
   if (!repoAndOrg) {
     logger.error(`Invalid repository url: ${dotcomRepoUrl}`);
     return;
@@ -268,10 +211,22 @@ export async function createOrgRepos(broker: OctokitBroker, org: string) {
   }
 }
 
-export function extractOrgAndRepo(url: string): { org: string, repo: string } | null {
-  const regex = /\/([^\/]+)\/([^\/]+)$/;
-
+export function extractOrgAndRepoFromURL(url: string): { org: string, repo: string } | null {
+  // Find the owner and repo name from a url like https://github.com/octodemo/.github-private
+  const regex = /https:\/\/[^\/]+\/([^\/]+)\/([^\/?]+)(\/.*)?/;
   const match = url.match(regex);
+  
+  if (match && match.length >= 3) {
+    return { org: match[1], repo: match[2] };
+  }
+  
+  return null;
+}
+
+export function extractOrgAndRepoFromNWO(nwo: string): { org: string, repo: string } | null {
+  // Find the owner and repo name from a url like octodemo/.github-private. 
+  const regex = /^([^-][a-zA-Z0-9-]*[^-])\/([a-zA-Z0-9-.]+)$/;
+  const match = nwo.match(regex);
   
   if (match && match.length === 3) {
     return { org: match[1], repo: match[2] };
