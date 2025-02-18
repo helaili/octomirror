@@ -16,9 +16,7 @@ const octokit = new EnterpriseOctokitBuilder({});
 
 export interface AuditLogEvent {
   action: string;
-  operation_type: string;
   created_at: number;
-  business: string;
   org: string;
 }
 

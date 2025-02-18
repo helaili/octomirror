@@ -2,12 +2,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Octomirror } from './octomirror.js';
 import { EnterpriseOctokit, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent } from './types.js';
 import { App } from '@octokit/app';
-import * as RepositoriesModule from './repositories.js';
+import * as repositories from './repositories.js';
 import { processRepositoryEvent } from './repositoryEventProcessor.js';
 
-// Partially mock the module
-vi.mock('./repositories.js', async () => {
-  const originalModule = await vi.importActual<typeof RepositoriesModule>('./repositories.js');
+vi.mock('./logger');
+// TODO: Why can't we mock the whole module?
+vi.mock('./repositories', async () => {
+  const originalModule = await vi.importActual('./repositories.js');
   return {
     ...originalModule,
     createRepo: vi.fn(),
@@ -84,19 +85,17 @@ describe('processRepositoryEvent', () => {
             org: 'test-org',
             repo: 'test-org/test-repo',
             visibility: 'public',
-            operation_type: 'create',
-            created_at: 0,
-            business: 'test-org'
+            created_at: 0
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.createRepo).toHaveBeenCalledWith(ghesOctokit, {
+        expect(repositories.createRepo).toHaveBeenCalledWith(ghesOctokit, {
             org: 'test-org',
             name: 'test-repo',
             visibility: 'public'
         });
-        expect(RepositoriesModule.mirrorRepo).toHaveBeenCalledWith('https://dotcom.com/test-org/test-repo', 'https://ghes.com/test-org/test-repo');
+        expect(repositories.mirrorRepo).toHaveBeenCalledWith('https://dotcom.com/test-org/test-repo', 'https://ghes.com/test-org/test-repo');
     });
 
     it('should delete a repository on repo.destroy event', async () => {
@@ -105,19 +104,17 @@ describe('processRepositoryEvent', () => {
             org: 'test-org',
             repo: 'test-org/test-repo',
             visibility: 'public',
-            operation_type: 'delete',
             created_at: 0,
-            business: 'test-org'
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.deleteRepo).toHaveBeenCalledWith(ghesOctokit, {
+        expect(repositories.deleteRepo).toHaveBeenCalledWith(ghesOctokit, {
             org: 'test-org',
             name: 'test-repo',
             visibility: 'public'
         });
-        expect(RepositoriesModule.deleteMirror).toHaveBeenCalledWith({
+        expect(repositories.deleteMirror).toHaveBeenCalledWith({
             org: 'test-org',
             name: 'test-repo',
             visibility: 'public'
@@ -131,19 +128,17 @@ describe('processRepositoryEvent', () => {
             repo: 'test-org/test-repo',
             visibility: 'public',
             old_name: 'old-repo',
-            operation_type: 'rename',
             created_at: 0,
-            business: 'test-org'
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.renameRepo).toHaveBeenCalledWith(ghesOctokit, {
+        expect(repositories.renameRepo).toHaveBeenCalledWith(ghesOctokit, {
             org: 'test-org',
             name: 'test-repo',
             visibility: 'public'
         }, 'old-repo');
-        expect(RepositoriesModule.renameMirror).toHaveBeenCalledWith({
+        expect(repositories.renameMirror).toHaveBeenCalledWith({
             org: 'test-org',
             name: 'test-repo',
             visibility: 'public'
@@ -156,15 +151,13 @@ describe('processRepositoryEvent', () => {
             org: 'test-org',
             repo: 'test-org/',
             visibility: 'public',
-            operation_type: 'create',
             created_at: 0,
-            business: 'test-org'
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.createRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.mirrorRepo).not.toHaveBeenCalled();
+        expect(repositories.createRepo).not.toHaveBeenCalled();
+        expect(repositories.mirrorRepo).not.toHaveBeenCalled();
     });
 
     it('should log an error for invalid repository name on repo.destroy event', async () => {
@@ -173,15 +166,13 @@ describe('processRepositoryEvent', () => {
             org: 'test-org',
             repo: 'test-org/',
             visibility: 'public',
-            operation_type: 'delete',
             created_at: 0,
-            business: 'test-org'
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.deleteRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.deleteMirror).not.toHaveBeenCalled();
+        expect(repositories.deleteRepo).not.toHaveBeenCalled();
+        expect(repositories.deleteMirror).not.toHaveBeenCalled();
     });
 
     it('should log an error for invalid repository name on repo.rename event', async () => {
@@ -191,15 +182,13 @@ describe('processRepositoryEvent', () => {
             repo: 'test-org/',
             visibility: 'public',
             old_name: 'old-repo',
-            operation_type: 'rename',
             created_at: 0,
-            business: 'test-org'
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.renameRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.renameMirror).not.toHaveBeenCalled();
+        expect(repositories.renameRepo).not.toHaveBeenCalled();
+        expect(repositories.renameMirror).not.toHaveBeenCalled();
     });
 
     it('should log info for unknown event action', async () => {
@@ -208,18 +197,16 @@ describe('processRepositoryEvent', () => {
             org: 'test-org',
             repo: 'test-org/test-repo',
             visibility: 'public',
-            operation_type: 'create',
-            created_at: 0,
-            business: 'test-org'
+            created_at: 0
         };
 
         await processRepositoryEvent(mockOctomirror as any as Octomirror, event);
 
-        expect(RepositoriesModule.createRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.deleteRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.renameRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.mirrorRepo).not.toHaveBeenCalled();
-        expect(RepositoriesModule.deleteMirror).not.toHaveBeenCalled();
-        expect(RepositoriesModule.renameMirror).not.toHaveBeenCalled();
+        expect(repositories.createRepo).not.toHaveBeenCalled();
+        expect(repositories.deleteRepo).not.toHaveBeenCalled();
+        expect(repositories.renameRepo).not.toHaveBeenCalled();
+        expect(repositories.mirrorRepo).not.toHaveBeenCalled();
+        expect(repositories.deleteMirror).not.toHaveBeenCalled();
+        expect(repositories.renameMirror).not.toHaveBeenCalled();
     });
 });

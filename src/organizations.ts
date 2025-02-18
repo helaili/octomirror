@@ -1,10 +1,9 @@
 import { installApp } from './installation.js';
 import { OctokitBroker } from './octokitBroker.js';
-import { Octomirror } from './octomirror.js';
 import { createOrgRepos } from './repositories.js';
 import { createRepositoryRoles } from './repositoryRoles.js';
 import { createOrgTeams } from './teams.js';
-import { EnterpriseOctokit, OrganizationAuditLogEvent, OrganizationRenameAuditLogEvent } from './types.js';
+import { EnterpriseOctokit } from './types.js';
 import logger from './logger.js';
 
 export async function allInstallableOrganizations(octokit: EnterpriseOctokit, enterpriseSlug: string): Promise<string[]> {

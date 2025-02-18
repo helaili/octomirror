@@ -4,22 +4,18 @@ import logger from './logger.js';
 import { addMemberToTeam, addRepositoryToTeam, changeParentTeam, changeTeamPrivacy, createTeamFromAuditLog, deleteTeam, demoteMaintainer, promoteMaintainer, removeMemberFromTeam, removeRepositoryFromTeam, updateRepositoryPermission } from "./teams.js";
 
 export async function processTeamEvent(om: Octomirror, event: TeamAuditLogEvent) {
+  const teamName = event.team?.split('/').pop() || '';
+  if(teamName === '') {
+    logger.error(`Invalid team name for ${event.action} event: ${event.team}`);
+    return;
+  }
+        
   switch(event.action) {
     case 'team.create':
-      const teamName = event.team?.split('/').pop() || '';
-      if(teamName === '') {
-        logger.error(`Invalid team name for creation event: ${event.team}`);
-        break;
-      }
       await createTeamFromAuditLog(om.broker, event.org, teamName, om.ghesOwnerUser);
       break;
     case 'team.destroy':
-      const teamNameToDelete = event.team?.split('/').pop() || '';
-      if(teamNameToDelete === '') {
-        logger.error(`Invalid team name for deletion event: ${event.team}`);
-        break;
-      }
-      await deleteTeam(om.broker.ghesOctokit, event.org, teamNameToDelete);
+      await deleteTeam(om.broker.ghesOctokit, event.org, teamName);
       break;
     case 'team.rename':
       const teamRenameEvent = event as TeamAuditLogEvent;
