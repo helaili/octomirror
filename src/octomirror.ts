@@ -1,11 +1,13 @@
 import { OctokitBroker } from "./octokitBroker.js";
-import { allInstallableOrganizations, processOrganizationEvent, processOrgCreation } from "./organizations.js";
+import { allInstallableOrganizations, processOrgCreation } from "./organizations.js";
+import { processOrganizationEvent } from "./organizationsEventProcessor.js";
 import { installApp } from "./installation.js";
 import { processRepositoryEvent } from "./repositoryEventProcessor.js";
 import { auditEvents } from "./enterprise.js";
 import { OrganizationAuditLogEvent, RepositoryAuditLogEvent, RepositoryRoleAuditLogEvent, TeamAuditLogEvent } from "./types.js";
-import { deleteOrgTeams, processTeamEvent } from "./teams.js";
-import { processRepositoryRoleEvent } from "./repositoryRole.js";
+import { deleteOrgTeams } from "./teams.js";
+import { processTeamEvent } from "./teamEventProcessor.js";
+import { processRepositoryRoleEvent } from "./repositoryRoleEventProcessor.js";
 import logger from './logger.js';
 
 export class Octomirror {

@@ -30,7 +30,7 @@ export async function createRepo(octokit: EnterpriseOctokit, repo: Repository): 
   logger.info(`Creating repo ${repo.name} with owner ${repo.org} and visibility ${repo.visibility.toLowerCase()}...`)
     
   try {
-    await octokit.repos.createInOrg({
+    await octokit.rest.repos.createInOrg({
       'org': repo.org, 
       'name': repo.name,
       'visibility': repo.visibility.toLowerCase() as any 

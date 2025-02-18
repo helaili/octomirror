@@ -1,24 +1,6 @@
 import { OctokitBroker } from './octokitBroker.js';
-import { CustomRepositoryRole, EnterpriseOctokit, ListCustomRepositoryRole, RepositoryRoleAuditLogEvent } from './types.js';
+import { CustomRepositoryRole, EnterpriseOctokit, ListCustomRepositoryRole } from './types.js';
 import logger from './logger.js';
-import { Octomirror } from './octomirror.js';
-
-export async function processRepositoryRoleEvent(om: Octomirror, event: RepositoryRoleAuditLogEvent) {
-  switch(event.action) {
-    case 'role.create':
-      await createRepositoryRole(om.broker, event.org, event.name);
-      break;
-    case 'role.update':
-      await updateRepositoryRole(om.broker, event.org, event.name);
-      break;
-    case 'role.destroy':
-      await deleteRepositoryRole(om.broker, event.org, event.name);
-      break;
-    default:
-      logger.info(`Ignoring event ${event.action}`);
-      break;
-  }
-}
 
 export async function createRepositoryRoles(broker: OctokitBroker, org: string) {
   const octokit = await broker.getAppInstallationOctokit(org);

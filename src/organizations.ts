@@ -2,7 +2,7 @@ import { installApp } from './installation.js';
 import { OctokitBroker } from './octokitBroker.js';
 import { Octomirror } from './octomirror.js';
 import { createOrgRepos } from './repositories.js';
-import { createRepositoryRoles } from './repositoryRole.js';
+import { createRepositoryRoles } from './repositoryRoles.js';
 import { createOrgTeams } from './teams.js';
 import { EnterpriseOctokit, OrganizationAuditLogEvent, OrganizationRenameAuditLogEvent } from './types.js';
 import logger from './logger.js';
@@ -36,28 +36,6 @@ export async function allInstallableOrganizations(octokit: EnterpriseOctokit, en
   return orgs;
 }
 
-export async function processOrganizationEvent(om: Octomirror, event: OrganizationAuditLogEvent) {
-  switch(event.action) {
-    case 'org.create':
-      await processOrgCreation(om.broker, om.appClientId, event.org, om.ghesOwnerUser);
-      break;
-    case 'org.delete':
-      await processOrgDeletion(om.broker, event.org);
-      break; 
-    case 'org.rename': 
-      const orgRenameEvent = event as OrganizationRenameAuditLogEvent;
-      const httpStatus = await processOrgRename(om.broker, orgRenameEvent.old_login, orgRenameEvent.org);
-      if (httpStatus == 404) {
-        // The old org wasn't found, let's create the new one
-        processOrgCreation(om.broker, om.appClientId, event.org, om.ghesOwnerUser);
-      }  
-      break;
-    default:
-      logger.info(`Ignoring event ${event.action}`);
-      break;
-  }
-}
-
 export async function processOrgCreation(broker: OctokitBroker, appClientId: string, orgLogin: string, ghesOwnerUser: string) {
   // Install the app on the dotcom org so that we can access its repositories
   const installationId = await installApp(broker.installationOctokit, broker.enterpriseSlug, orgLogin, broker.appSlug, appClientId);
@@ -77,14 +55,6 @@ export async function processOrgCreation(broker: OctokitBroker, appClientId: str
     //Create all teams on the GHES org
     await createOrgTeams(broker, orgLogin, ghesOwnerUser);
   }
-}
-
-async function processOrgDeletion(broker: OctokitBroker, orgLogin: string) {
-  await deleteOrg(broker.ghesOctokit, orgLogin)
-}
-
-async function processOrgRename(broker: OctokitBroker, oldLogin: string, newLogin: string) : Promise<number> {
-  return renameOrg(broker.ghesOctokit, oldLogin, newLogin)
 }
 
 export async function createOrg(octokit: EnterpriseOctokit, org: string, adminUser: string): Promise<void> {
