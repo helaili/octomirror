@@ -507,6 +507,8 @@ export async function createTeamFromAuditLog(broker: OctokitBroker,  org: string
 }
 
 async function populateTeamMembers(broker: OctokitBroker, org: string, team: Team) {
+  logger.debug(`Populating members in team ${team.name} in org ${org}...`)
+  
   let hasExternalGroup = false;
   const orgOctokit = await broker.getAppInstallationOctokit(org);
     
@@ -535,6 +537,8 @@ async function populateTeamMembers(broker: OctokitBroker, org: string, team: Tea
   }
 }
 async function populateRepositories(broker: OctokitBroker, org: string, team: Team) {
+  logger.debug(`Populating repositories in team ${team.name} in org ${org}...`)
+  
   const orgOctokit = await broker.getAppInstallationOctokit(org);
 
   try {

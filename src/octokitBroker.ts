@@ -1,8 +1,9 @@
 import { App } from '@octokit/app';
-import { Octokit } from '@octokit/rest';
 import { getInstallationToken } from './installation.js';
 import { EnterpriseOctokit, EnterpriseOctokitBuilder } from './types.js';
 import logger from './logger.js';
+import { warn } from 'console';
+import { exit } from 'process';
 
 export class OctokitBroker {
   app: App;
@@ -16,6 +17,18 @@ export class OctokitBroker {
   ghesPat: string;
   ghesUrl: string;
   installationTokens: Map<string, string> = new Map();
+
+  octokitLogger = {
+    info: (message: string) => {
+    },
+    warn: (message: string) => {
+    },
+    error: (message: string) => {
+      logger.error(message);
+    },
+    debug: (message: string) => {
+    }
+  };
   
   constructor(ghespat: string, ghesUrl: string, dotcompat: string, appSlug: string, appId: number, privateKey: string, dotcomUrl: string = "https://github.com") {
     this.appSlug = appSlug;
@@ -33,17 +46,20 @@ export class OctokitBroker {
         
     this.dotcomOctokit = new EnterpriseOctokitBuilder({
       auth: dotcompat,
-      baseUrl: this.dotcomApiUrl
+      baseUrl: this.dotcomApiUrl,
+      log: this.octokitLogger,
     });
+    
     this.ghesOctokit = new EnterpriseOctokitBuilder({
       auth: ghespat,
-      baseUrl: `${ghesUrl}/api/v3`
+      baseUrl: `${ghesUrl}/api/v3`,
+      log: this.octokitLogger,
     });
-
+    
     const Octokit = EnterpriseOctokitBuilder.defaults({
       baseUrl: this.dotcomApiUrl,
+      log: this.octokitLogger,
     });
-
 
     this.app = new App({ appId, privateKey, Octokit });
     
@@ -75,7 +91,6 @@ export class OctokitBroker {
     const url = new URL(this.ghesUrl);
     url.username = this.ghesPat;
     return `${url.toString()}${org}/${repo}`;
-
   }
 
   /* 
@@ -89,14 +104,15 @@ export class OctokitBroker {
     let apiUrl = `${this.dotcomUrl}/api/v3`;
     if(this.dotcomUrl === "https://github.com") {
       apiUrl = 'https://api.github.com';
-    } 
+    }
 
     if (this.installationTokens.has(org)) {
       logger.debug(`Installation token already exists for ${org}`);
       logger.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
       return new EnterpriseOctokitBuilder({ 
         auth: this.installationTokens.get(org),
-        baseUrl: apiUrl
+        baseUrl: apiUrl,
+        log: this.octokitLogger,
       });
     } else {
       const token = await getInstallationToken(this.installationOctokit, this.enterpriseSlug, org, this.appSlug, installationId);
@@ -108,11 +124,11 @@ export class OctokitBroker {
         logger.debug(`Installation token for org ${org} is ${this.installationTokens.get(org)}`);
         return new EnterpriseOctokitBuilder({ 
           auth: token.token,
-          baseUrl: apiUrl
+          baseUrl: apiUrl,
+          log: this.octokitLogger,
         });
       }
     }
-    
   }
 
   private async initialize() {

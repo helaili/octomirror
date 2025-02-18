@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest';
 import { enterpriseCloud } from "@octokit/plugin-enterprise-cloud";
 import { paginateRest } from "@octokit/plugin-paginate-rest";
+import { requestLog } from "@octokit/plugin-request-log";
 import type { operations as GhecOperations } from '@octokit/openapi-types-ghec';
 import {
   GetResponseDataTypeFromEndpointMethod,
@@ -8,7 +9,7 @@ import {
 } from "@octokit/types";
 
 //export const EnterpriseOctokitBuilder = Octokit.plugin(enterpriseCloud, paginateRest, throttling, retry);
-export const EnterpriseOctokitBuilder = Octokit.plugin(enterpriseCloud, paginateRest);
+export const EnterpriseOctokitBuilder = Octokit.plugin(requestLog, enterpriseCloud, paginateRest);
 export type EnterpriseOctokit = InstanceType<typeof EnterpriseOctokitBuilder>;
 
 const octokit = new EnterpriseOctokitBuilder({});
