@@ -5,6 +5,7 @@ import { rm } from "fs/promises";
 import { move } from 'fs-extra/esm';
 import { OctokitBroker } from "./octokitBroker.js";
 import logger from './logger.js';
+import { extractOrgAndRepoFromURL } from "./repositoryUtils.js";
 
 const repoGraphqlQuery = `
 query($login: String!, $cursor: String) {
@@ -28,7 +29,8 @@ const WORKING_DIR = process.env.WORKING_DIR || '/tmp';
 export async function createRepo(octokit: EnterpriseOctokit, repo: Repository): Promise<'created' | 'existing'> {
   // Use octokit to create the orgs
   logger.info(`Creating repo ${repo.name} with owner ${repo.org} and visibility ${repo.visibility.toLowerCase()}...`)
-    
+  logger.error('HEEEEEERRRREEEE');
+
   try {
     await octokit.rest.repos.createInOrg({
       'org': repo.org, 
@@ -209,28 +211,4 @@ export async function createOrgRepos(broker: OctokitBroker, org: string) {
     hasNextPage = data.pageInfo.hasNextPage
     cursor = data.pageInfo.endCursor
   }
-}
-
-export function extractOrgAndRepoFromURL(url: string): { org: string, repo: string } | null {
-  // Find the owner and repo name from a url like https://github.com/octodemo/.github-private
-  const regex = /https:\/\/[^\/]+\/([^\/]+)\/([^\/?]+)(\/.*)?/;
-  const match = url.match(regex);
-  
-  if (match && match.length >= 3) {
-    return { org: match[1], repo: match[2] };
-  }
-  
-  return null;
-}
-
-export function extractOrgAndRepoFromNWO(nwo: string): { org: string, repo: string } | null {
-  // Find the owner and repo name from a url like octodemo/.github-private. 
-  const regex = /^([^-][a-zA-Z0-9-]*[^-])\/([a-zA-Z0-9-.]+)$/;
-  const match = nwo.match(regex);
-  
-  if (match && match.length === 3) {
-    return { org: match[1], repo: match[2] };
-  }
-  
-  return null;
 }

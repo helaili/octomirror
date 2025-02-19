@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractOrgAndRepoFromURL, extractOrgAndRepoFromNWO } from './repositories.js';
+import { extractOrgAndRepoFromURL, extractOrgAndRepoFromNWO } from './repositoryUtils.js';
 
 describe('extractOrgAndRepo', () => {
   it('should extract org and repo from a valid URL', () => {
@@ -14,16 +14,16 @@ describe('extractOrgAndRepo', () => {
     expect(result).toEqual({ org: 'octodemo', repo: '.github-private' });
   });
   
-  it('should return null for an invalid URL', () => {
+  it('should return undefined for an invalid URL', () => {
     const url = 'https://github.com/octodemo';
     const result = extractOrgAndRepoFromURL(url);
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
-  it('should return null for a malformed URL', () => {
+  it('should return undefined for a malformed URL', () => {
     const url = 'not-a-valid-url';
     const result = extractOrgAndRepoFromURL(url);
-    expect(result).toBeNull();
+    expect(result).toBeUndefined();
   });
 
   it('should extract org and repo from a URL with subdirectories', () => {
@@ -51,16 +51,16 @@ describe('extractOrgAndRepo', () => {
       expect(result).toEqual({ org: 'octodemo', repo: '.github-private' });
     });
     
-    it('should return null for an invalid URL', () => {
+    it('should return undefined for an invalid URL', () => {
       const url = 'https://github.com/octodemo';
       const result = extractOrgAndRepoFromURL(url);
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
-    it('should return null for a malformed URL', () => {
+    it('should return undefined for a malformed URL', () => {
       const url = 'not-a-valid-url';
       const result = extractOrgAndRepoFromURL(url);
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('should extract org and repo from a URL with subdirectories', () => {
@@ -89,22 +89,22 @@ describe('extractOrgAndRepo', () => {
       expect(result).toEqual({ org: 'octodemo', repo: '.github-private' });
     });
 
-    it('should return null for an invalid NWO', () => {
+    it('should return undefined for an invalid NWO', () => {
       const nwo = 'octodemo';
       const result = extractOrgAndRepoFromNWO(nwo);
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
-    it('should return null for a malformed NWO', () => {
+    it('should return undefined for a malformed NWO', () => {
       const nwo = 'not-a-valid-nwo';
       const result = extractOrgAndRepoFromNWO(nwo);
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
-    it('should return null for an NWO with invalid characters', () => {
+    it('should return undefined for an NWO with invalid characters', () => {
       const nwo = 'octodemo/invalid_repo!';
       const result = extractOrgAndRepoFromNWO(nwo);
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 });

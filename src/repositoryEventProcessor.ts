@@ -1,11 +1,12 @@
 import { Repository, RepositoryAuditLogEvent, RepositoryRenameAuditLogEvent } from "./types.js";
 import { Octomirror } from "./octomirror.js";
 import logger from './logger.js';
-import { createRepo, mirrorRepo, deleteRepo, deleteMirror, renameRepo, renameMirror, extractOrgAndRepoFromNWO } from "./repositories.js";
+import { createRepo, mirrorRepo, deleteRepo, deleteMirror, renameRepo, renameMirror } from "./repositories.js";
+import { extractOrgAndRepoFromNWO } from "./repositoryUtils.js";
 
 export async function processRepositoryEvent(om: Octomirror, repoEvent: RepositoryAuditLogEvent) {
   const nwo = extractOrgAndRepoFromNWO(repoEvent.repo);
-  
+
   if (!nwo) {
     logger.error(`Invalid repository name for ${repoEvent.action} on org ${repoEvent.org} : ${repoEvent.repo}`);
     return;
@@ -17,7 +18,6 @@ export async function processRepositoryEvent(om: Octomirror, repoEvent: Reposito
     visibility: repoEvent.visibility
   };
 
-  
   switch(repoEvent.action) {
     case 'repo.create':
       await createRepo(om.broker.ghesOctokit, repo)
