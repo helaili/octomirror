@@ -39,7 +39,7 @@
     "@octokit/openapi-types": "^23.0.1",
     "@octokit/openapi-types-ghec": "^23.0.1",
     "@octokit/plugin-enterprise-cloud": "^13.0.0",
-    "@octokit/plugin-paginate-rest": "^11.4.0",
+    "@octokit/plugin-paginate-rest": "^11.4.2",
     "@octokit/plugin-request-log": "^5.3.1",
     "@octokit/plugin-retry": "^7.1.3",
     "@octokit/plugin-throttling": "^9.4.0",
