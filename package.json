@@ -36,7 +36,7 @@
   },
   "dependencies": {
     "@octokit/app": "^15.1.2",
-    "@octokit/openapi-types": "^23.0.1",
+    "@octokit/openapi-types": "^24.0.0",
     "@octokit/openapi-types-ghec": "^23.0.1",
     "@octokit/plugin-enterprise-cloud": "^13.0.0",
     "@octokit/plugin-paginate-rest": "^11.4.0",
