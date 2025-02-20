@@ -6,9 +6,12 @@ On Entra Id, that means you need to make sure both Enteprise Applications have a
 
 ```mermaid
 graph TD
-    GHES[GHES] --> IdP[IdP]
-    GHEC[GHEC] --> IdP[IdP]
-    GHES --- GHEC
+    subgraph GHE
+        direction RL
+        GHES[GHES] --> |sync| GHEC[GHEC]
+    end    
+    IdP[(Identity Provider)] --> |SCIM| GHES[GHES]
+    IdP[(Identity Provider)] --> |SCIM| GHEC[GHEC]
 ```
 
 Octomirror has two operating modes: `init` and `sync`. The `init` mode replicates everything on GHES, while the `sync` mode reads the audit log to find apply the changes since the specified date. This means you can run it several times a day to get incremental updates. 
